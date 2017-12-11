@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-
 from __future__ import print_function
 
 import argparse
@@ -8,12 +7,93 @@ import logging
 import random
 import sys
 import time
+import numpy as np
+from matplotlib import pyplot as plt
+import cv2
 
 from carla.client import make_carla_client
 from carla.sensor import Camera
 from carla.settings import CarlaSettings
 from carla.tcp import TCPConnectionError
 from carla.util import print_over_same_line
+
+show_camera = False
+save_to_disk = False
+
+
+def distance_to_side(sem, depth):
+    img_size = sem.shape
+
+    center = int(img_size[1] / 2)
+    offroad, left, right, d_left, d_right = -1, -1, -1, -1, -1
+
+    for i in range(img_size[0] - 1, -1, -1):
+        if (sem[i][center] != 7): continue
+
+        offroad = i
+
+        if (right >= 0) & (left >= 0): continue  # already found
+
+        for j in range(img_size[1]):
+            if sem[i][j] == 7: continue
+
+            if (j < center):
+                if (j > left) | (left < 0): left = j
+            else:
+                if (j < right) | (right < 0): right = j
+
+        if (left >= 0) & (d_left < 0): d_left = depth[i][left] * 1000
+        if (right >= 0) & (d_right < 0): d_right = depth[i][right] * 1000
+    return depth[offroad][center] * 1000, d_left, d_right
+
+
+# 21.8104733116 5.60647282639 8.56894305759
+
+def show_and_save(sensor_data, frame):
+    if show_camera:
+        img_sem = sensor_data.get('CameraSemanticSegmentation').data
+        img = np.copy(sensor_data.get('CameraRGB').data)
+        # img_sem = warper(img_sem)
+        img_size = img.shape
+        for i in range(img_size[0]):
+            for j in range(img_size[1]):
+                sem = img_sem[i][j]
+                if sem == 0:
+                    img[i][j] = [0, 0, 0]
+                elif sem == 1:
+                    img[i][j] = [255, 0, 0]
+                elif sem == 2:
+                    img[i][j] = [0, 255, 0]
+                elif sem == 3:
+                    img[i][j] = [0, 0, 128]
+                elif sem == 4:
+                    img[i][j] = [0, 0, 255]
+                elif sem == 5:
+                    img[i][j] = [255, 255, 0]
+                elif sem == 6:
+                    img[i][j] = [0, 255, 255]
+                elif sem == 7:
+                    img[i][j] = [255, 0, 255]
+                elif sem == 8:
+                    img[i][j] = [128, 0, 0]
+                elif sem == 9:
+                    img[i][j] = [128, 128, 0]
+                elif sem == 10:
+                    img[i][j] = [0, 128, 0]
+                elif sem == 11:
+                    img[i][j] = [128, 0, 128]
+                elif sem == 12:
+                    img[i][j] = [0, 128, 128]
+                else:
+                    img[i][j] = [255, 255, 255]
+
+        plt.imshow(img)
+        plt.pause(0.001)
+
+    if save_to_disk:
+        image_filename_format = '_images/{:s}/image_{:0>5d}.png'
+        # for name, image in sensor_data.items():
+        sensor_data.get('CameraRGB').save_to_disk(image_filename_format.format('CameraRGB', frame))
 
 
 def run_carla_client(host, port):
@@ -33,7 +113,7 @@ def run_carla_client(host, port):
             SendNonPlayerAgentsInfo=True,
             NumberOfVehicles=20,
             NumberOfPedestrians=40,
-            WeatherId= 1) #random.choice([1, 3, 7, 8, 14]))
+            WeatherId=1)  # random.choice([1, 3, 7, 8, 14]))
         settings.randomize_seeds()
 
         # Now we want to add a couple of cameras to the player vehicle.
@@ -54,6 +134,10 @@ def run_carla_client(host, port):
         camera1.set_position(30, 0, 130)
         settings.add_sensor(camera1)
 
+        camera2 = Camera('CameraSemanticSegmentation', PostProcessing='SemanticSegmentation')
+        camera2.set_image_size(800, 600)
+        camera2.set_position(30, 0, 130)
+        settings.add_sensor(camera2)
 
         # Now we load these settings into the server. The server replies
         # with a scene description containing the available start spots for
@@ -63,7 +147,7 @@ def run_carla_client(host, port):
 
         # Choose one player start at random.
         number_of_player_starts = len(scene.player_start_spots)
-        player_start = 0 # random.randint(0, max(0, number_of_player_starts - 1))
+        player_start = 0  # random.randint(0, max(0, number_of_player_starts - 1))
 
         # Notify the server that we want to start the episode at the
         # player_start index. This function blocks until the server is ready
@@ -71,12 +155,25 @@ def run_carla_client(host, port):
         print('Starting...')
         client.start_episode(player_start)
 
-        while(True):
+        if show_camera:
+            plt.ion()
+            plt.show()
+
+        frame = 0
+        while (True):
+            frame += 1
             # Read the data produced by the server this frame.
             measurements, sensor_data = client.read_data()
 
             # Print some of the measurements.
             print_measurements(measurements)
+
+            show_and_save(sensor_data, frame)
+
+            sem = sensor_data.get('CameraSemanticSegmentation').data
+            depth = sensor_data.get('CameraDepth').data
+            start_offroad, left, right = distance_to_side(sem, depth)
+            print(start_offroad, left, right)
 
             # We can access the encoded data of a given image as numpy
             # array using its "data" property. For instance, to get the
@@ -103,7 +200,7 @@ def print_measurements(measurements):
     message += '{other_lane:.0f}% other lane, {offroad:.0f}% off-road, '
     message += '({agents_num:d} non-player agents in the scene)'
     message = message.format(
-        pos_x=player_measurements.transform.location.x / 100, # cm -> m
+        pos_x=player_measurements.transform.location.x / 100,  # cm -> m
         pos_y=player_measurements.transform.location.y / 100,
         speed=player_measurements.forward_speed,
         col_cars=player_measurements.collision_vehicles,
