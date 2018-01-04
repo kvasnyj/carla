@@ -16,19 +16,23 @@ from carla.sensor import Camera
 from carla.settings import CarlaSettings
 from carla.tcp import TCPConnectionError
 from carla.util import print_over_same_line
+from Line import Line
 
-show_camera = True
-save_to_disk = True
+image_filename_format = '/home/kvasnyj/temp/images/{:s}/image_{:0>5d}.png'
+show_camera = False
+save_to_disk = False
 
 Kp = 0.003
 Ki = 0
 Kd = 0 #3.5
-
 prev_cte = 0
 int_cte = 0
 frame = 0
 err = 0
 
+# image shape
+h, w = None, None
+warp_src, warp_dst = None, None
 
 def UpdateError(cte):
     global prev_cte, int_cte, err
@@ -76,12 +80,9 @@ def distance_to_side(sem, depth):
     return depth[offroad][center] * 1000, d_left, d_right
 
 
-def warper(img):
-    size = img.shape
 
+def define_warper():
     basex = 520
-    x = size[1]
-    y = size[0]
     width = 100
     height = 100
 
@@ -93,29 +94,167 @@ def warper(img):
     ])
 
     dst = np.float32([
-        [(x-width)/2, basex],
-        [x - (x-width)/2, basex],
-        [(x-width)/2, basex-height],
-        [x - (x-width)/2, basex-height]
+        [(w-width)/2, basex],
+        [w - (w-width)/2, basex],
+        [(w-width)/2, basex-height],
+        [w - (w-width)/2, basex-height]
     ]) 
 
+    return src, dst
+
+def warper(img):
     # Compute and apply perpective transform
-    M = cv2.getPerspectiveTransform(src, dst)
+    M = cv2.getPerspectiveTransform(warp_src, warp_dst)
     warped = cv2.warpPerspective(img, M, (img.shape[1], img.shape[0]), flags=cv2.INTER_NEAREST)  # keep same size as input image
 
     return warped
 
-def show_and_save(sensor_data):
-    image_filename_format = '/home/kvasnyj/temp/images/{:s}/image_{:0>5d}.png'
+def sem2bin(img):
+    bin = np.uint8(img == 7)*255
 
+    #high_thresh, thresh_im = cv2.threshold(bin, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    #lowThresh = 0.5 * high_thresh
+    bin = cv2.Canny(bin, 0, 255)
+
+    return bin
+
+def peaks_histogram(img, debug = False):
+    left_fitx, right_fitx, left_fity, right_fity = [], [], [], []
+    past_left, past_right = 0, w / 2
+
+    topx = 390
+    offset = 360
+
+    for i in range(0, topx):
+        histogram = np.sum(img[topx-i:h-i, :], axis=0)
+
+        x_left = np.argmax(histogram[offset: int(w / 2)])+offset
+        if (past_left == 0) | (abs(x_left-past_left)<150) & (histogram[x_left]>=5):
+            left_fitx.append(x_left)
+            left_fity.append(h-i)
+            past_left = x_left
+
+        x_right = int(w / 2 + np.argmax(histogram[int(w / 2):w]))
+        if (past_right == w / 2) | (abs(x_right-past_right)<150) & (histogram[x_right]>=5):
+            right_fitx.append(x_right)
+            right_fity.append(h-i)
+            past_right = x_right
+
+        if debug:
+            print(left_fitx)
+            print(right_fitx)
+            plt.plot(histogram)
+            plt.show()
+
+    return left_fitx, left_fity, right_fitx, right_fity
+
+def curvature(leftx, lefty, rightx, righty, debug = False):
+    leftx = np.float32(leftx)
+    rightx = np.float32(rightx)
+    lefty = np.float32(lefty)
+    righty = np.float32(righty)
+
+    left_fit = np.polyfit(lefty, leftx, 2)
+    right_fit = np.polyfit(righty, rightx, 2)
+
+    # Define y-value where we want radius of curvature
+    y_eval = np.max(lefty)
+    left_curverad = ((1 + (2*left_fit[0]*y_eval + left_fit[1])**2)**1.5) \
+                                 /np.absolute(2*left_fit[0])
+    right_curverad = ((1 + (2*right_fit[0]*y_eval + right_fit[1])**2)**1.5) \
+                                    /np.absolute(2*right_fit[0])
+
+    if debug: print(left_curverad, right_curverad)
+
+    # Define conversions in x and y from pixels space to meters
+    ym_per_pix = 30.0 / 720  # meters per pixel in y dimension
+    xm_per_pix = 3.7 / 700  # meteres per pixel in x dimension
+
+    left_fit_cr = np.polyfit(lefty * ym_per_pix, leftx * xm_per_pix, 2)
+    right_fit_cr = np.polyfit(righty * ym_per_pix, rightx * xm_per_pix, 2)
+    left_curverad = ((1 + (2 * left_fit_cr[0] * y_eval + left_fit_cr[1]) ** 2) ** 1.5) \
+                    / np.absolute(2 * left_fit_cr[0])
+    right_curverad = ((1 + (2 * right_fit_cr[0] * y_eval + right_fit_cr[1]) ** 2) ** 1.5) \
+                     / np.absolute(2 * right_fit_cr[0])
+    # Now our radius of curvature is in meters
+    if debug: print(left_curverad, 'm', right_curverad, 'm')
+
+    yvals = np.arange(h - h / 2, h, 1.0)
+    left_fitx = sanity_check(left_lane, left_fit, yvals,  left_curverad)
+    right_fitx = sanity_check(right_lane, right_fit, yvals, right_curverad)
+
+    return left_fitx, right_fitx, yvals, (left_curverad + right_curverad)/2
+
+def sanity_check(lane, polyfit, yvals, curvature):
+    if lane.polyfit== None: #new object
+        lane.radius_of_curvature = curvature
+        lane.polyfit = polyfit
+        lane.detected = True
+        lane.count_skip = 0
+    else:
+        a = np.column_stack((lane.polyfit[0] * yvals ** 2 + lane.polyfit[1] * yvals + lane.polyfit[2], yvals))
+        b = np.column_stack((polyfit[0] * yvals ** 2 + polyfit[1] * yvals + polyfit[2], yvals))
+        ret = cv2.matchShapes(a, b, 1, 0.0)
+
+        if (ret < 0.005) | (lane.count_skip > 10):
+            lane.radius_of_curvature = curvature
+            lane.polyfit = polyfit
+            lane.detected = True
+            lane.count_skip = 0
+        else:
+            lane.detected = False
+            lane.count_skip += 1
+
+    return lane.polyfit[0] * yvals ** 2 + lane.polyfit[1] * yvals + lane.polyfit[2]
+
+
+def fillPoly(undist, warped, left_fitx, right_fitx, yvals, curv):
+    # Create an image to draw the lines on
+    warp_zero = np.zeros_like(warped).astype(np.uint8)
+    color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
+
+    # Recast the x and y points into usable format for cv2.fillPoly()
+    pts_left = np.array([np.transpose(np.vstack([left_fitx, yvals]))])
+    pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, yvals])))])
+    pts = np.hstack((pts_left, pts_right))
+
+    # Draw the lane onto the warped blank image
+    cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
+
+    # Warp the blank back to original image space using inverse perspective matrix (Minv)
+    Minv = cv2.getPerspectiveTransform(warp_dst, warp_src)
+    newwarp = cv2.warpPerspective(color_warp, Minv, (undist.shape[1], undist.shape[0]))
+    # Combine the result with the original image
+    result = cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
+
+    return result
+
+def process_image(src_sem, src_img):
+    global h, w, warp_src, warp_dst
+    if h == None: h = src_img.shape[0]
+    if w == None: w= src_img.shape[1]
+    if warp_src == None: warp_src, warp_dst = define_warper()
+        
+    img = np.copy(src_sem)
+    img = warper(img)
+    img = sem2bin(img)
+    
+    leftx, lefty, rightx, righty = peaks_histogram(img)
+    left_fitx, right_fitx, yvals, curv = curvature(leftx, lefty, rightx, righty)
+    img = fillPoly(src_img, img, left_fitx, right_fitx, yvals, curv)
+
+    if True:
+        plt.imshow(img)
+        plt.pause(0)
+
+    return img    
+
+def show_and_save(sensor_data):
     if show_camera:
         img_sem = sensor_data.get('CameraSemanticSegmentation').data
         img = np.copy(sensor_data.get('CameraRGB').data)
         img_depth = np.copy(sensor_data.get('CameraDepth').data)
         img_depth = img_depth*255
-
-        img_sem = warper(img_sem)
-        img_size = img.shape
 
         for i in range(img_size[0]):
             for j in range(img_size[1]):
@@ -230,10 +369,14 @@ def run_carla_client(host, port):
             # Print some of the measurements.
             print_measurements(measurements)
 
-            show_and_save(sensor_data)
+
 
             sem = sensor_data.get('CameraSemanticSegmentation').data
             depth = sensor_data.get('CameraDepth').data
+            img = sensor_data.get('CameraRGB').data
+            process_image(sem, img)
+            show_and_save(sensor_data)
+
             start_offroad, left, right = distance_to_side(sem, depth)
             print(start_offroad, left, right)
 
@@ -289,6 +432,7 @@ def main():
     log_level = logging.DEBUG
     logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
 
+
     while True:
         try:
             run_carla_client('localhost', 2000)
@@ -307,6 +451,9 @@ def main():
 if __name__ == '__main__':
 
     try:
+        left_lane = Line()
+        right_lane = Line()
+
         main()
     except KeyboardInterrupt:
         print('\nCancelled by user. Bye!')
