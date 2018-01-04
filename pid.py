@@ -1,3 +1,5 @@
+# ~/carla/CarlaUE4.sh /Game/Maps/Town01 -carla-server -fps=15 -windowed -ResX=800 -ResY=600 
+
 from __future__ import print_function
 
 import argparse
@@ -15,8 +17,8 @@ from carla.settings import CarlaSettings
 from carla.tcp import TCPConnectionError
 from carla.util import print_over_same_line
 
-show_camera = False
-save_to_disk = False
+show_camera = True
+save_to_disk = True
 
 Kp = 0.003
 Ki = 0
@@ -74,14 +76,47 @@ def distance_to_side(sem, depth):
     return depth[offroad][center] * 1000, d_left, d_right
 
 
-# 21.8104733116 5.60647282639 8.56894305759
+def warper(img):
+    size = img.shape
+
+    basex = 520
+    x = size[1]
+    y = size[0]
+    width = 100
+    height = 100
+
+    src = np.float32([
+        [0, basex],
+        [790, basex],
+        [215, 400],
+        [580, 400]
+    ])
+
+    dst = np.float32([
+        [(x-width)/2, basex],
+        [x - (x-width)/2, basex],
+        [(x-width)/2, basex-height],
+        [x - (x-width)/2, basex-height]
+    ]) 
+
+    # Compute and apply perpective transform
+    M = cv2.getPerspectiveTransform(src, dst)
+    warped = cv2.warpPerspective(img, M, (img.shape[1], img.shape[0]), flags=cv2.INTER_NEAREST)  # keep same size as input image
+
+    return warped
 
 def show_and_save(sensor_data):
+    image_filename_format = '/home/kvasnyj/temp/images/{:s}/image_{:0>5d}.png'
+
     if show_camera:
         img_sem = sensor_data.get('CameraSemanticSegmentation').data
         img = np.copy(sensor_data.get('CameraRGB').data)
-        # img_sem = warper(img_sem)
+        img_depth = np.copy(sensor_data.get('CameraDepth').data)
+        img_depth = img_depth*255
+
+        img_sem = warper(img_sem)
         img_size = img.shape
+
         for i in range(img_size[0]):
             for j in range(img_size[1]):
                 sem = img_sem[i][j]
@@ -115,10 +150,10 @@ def show_and_save(sensor_data):
                     img[i][j] = [255, 255, 255]
 
         plt.imshow(img)
+        plt.savefig(image_filename_format.format('plot', frame))
         plt.pause(0.001)
 
     if save_to_disk:
-        image_filename_format = '_images/{:s}/image_{:0>5d}.png'
         # for name, image in sensor_data.items():
         sensor_data.get('CameraRGB').save_to_disk(image_filename_format.format('CameraRGB', frame))
 
@@ -202,7 +237,7 @@ def run_carla_client(host, port):
             start_offroad, left, right = distance_to_side(sem, depth)
             print(start_offroad, left, right)
 
-            cte = 6 - right
+            cte = left - right
 
             steer_value = UpdateError(cte)
 
