@@ -24,7 +24,7 @@ save_to_disk = False
 
 Kp = 0.003
 Ki = 0
-Kd = 0 #3.5
+Kd = 0.035
 prev_cte = 0
 int_cte = 0
 frame = 0
@@ -32,7 +32,7 @@ err = 0
 
 # image shape
 h, w = None, None
-warp_src, warp_dst = None, None
+warp_src, warp_dst = [], []
 
 def UpdateError(cte):
     global prev_cte, int_cte, err
@@ -52,34 +52,6 @@ def UpdateError(cte):
 
 def TotalError():
     return err / frame
-
-
-def distance_to_side(sem, depth):
-    img_size = sem.shape
-
-    center = int(img_size[1] / 2)
-    offroad, left, right, d_left, d_right = -1, -1, -1, -1, -1
-
-    for i in range(img_size[0] - 1, -1, -1):
-        if (sem[i][center] != 7): continue
-
-        offroad = i
-
-        if (right >= 0) & (left >= 0): continue  # already found
-
-        for j in range(img_size[1]):
-            if sem[i][j] == 7: continue
-
-            if (j < center):
-                if (j > left) | (left < 0): left = j
-            else:
-                if (j < right) | (right < 0): right = j
-
-        if (left >= 0) & (d_left < 0): d_left = depth[i][left] * 1000
-        if (right >= 0) & (d_right < 0): d_right = depth[i][right] * 1000
-    return depth[offroad][center] * 1000, d_left, d_right
-
-
 
 def define_warper():
     basex = 520
@@ -166,12 +138,9 @@ def curvature(leftx, lefty, rightx, righty, debug = False):
 
     if debug: print(left_curverad, right_curverad)
 
-    # Define conversions in x and y from pixels space to meters
-    ym_per_pix = 30.0 / 720  # meters per pixel in y dimension
-    xm_per_pix = 3.7 / 700  # meteres per pixel in x dimension
 
-    left_fit_cr = np.polyfit(lefty * ym_per_pix, leftx * xm_per_pix, 2)
-    right_fit_cr = np.polyfit(righty * ym_per_pix, rightx * xm_per_pix, 2)
+    left_fit_cr = np.polyfit(lefty , leftx , 2)
+    right_fit_cr = np.polyfit(righty , rightx , 2)
     left_curverad = ((1 + (2 * left_fit_cr[0] * y_eval + left_fit_cr[1]) ** 2) ** 1.5) \
                     / np.absolute(2 * left_fit_cr[0])
     right_curverad = ((1 + (2 * right_fit_cr[0] * y_eval + right_fit_cr[1]) ** 2) ** 1.5) \
@@ -186,7 +155,7 @@ def curvature(leftx, lefty, rightx, righty, debug = False):
     return left_fitx, right_fitx, yvals, (left_curverad + right_curverad)/2
 
 def sanity_check(lane, polyfit, yvals, curvature):
-    if lane.polyfit== None: #new object
+    if  len(lane.polyfit) == 0: #new object
         lane.radius_of_curvature = curvature
         lane.polyfit = polyfit
         lane.detected = True
@@ -227,13 +196,32 @@ def fillPoly(undist, warped, left_fitx, right_fitx, yvals, curv):
     # Combine the result with the original image
     result = cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
 
-    return result
+    # Warp the blank back to original image space using inverse perspective matrix (Minv)
+    Minv = cv2.getPerspectiveTransform(warp_dst, warp_src)
+    newwarp = cv2.warpPerspective(color_warp, Minv, (undist.shape[1], undist.shape[0]))
+    # Combine the result with the original image
+    result = cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
+
+    pts = np.argwhere(warped[:, :])
+    position = w/2
+    left  = np.min(pts[(pts[:,1] < position) ][:,1])
+    right = np.max(pts[(pts[:,1] > position) ][:,1])
+    center = (left + right)/2
+    position = position - center
+
+    #print(left, right, center, position)
+
+    if False:
+        plt.imshow(img)
+        plt.pause(0.001)
+
+    return position - 41
 
 def process_image(src_sem, src_img):
     global h, w, warp_src, warp_dst
     if h == None: h = src_img.shape[0]
-    if w == None: w= src_img.shape[1]
-    if warp_src == None: warp_src, warp_dst = define_warper()
+    if w == None: w = src_img.shape[1]
+    if  len(warp_src) == 0: warp_src, warp_dst = define_warper()
         
     img = np.copy(src_sem)
     img = warper(img)
@@ -241,13 +229,9 @@ def process_image(src_sem, src_img):
     
     leftx, lefty, rightx, righty = peaks_histogram(img)
     left_fitx, right_fitx, yvals, curv = curvature(leftx, lefty, rightx, righty)
-    img = fillPoly(src_img, img, left_fitx, right_fitx, yvals, curv)
+    position = fillPoly(src_img, img, left_fitx, right_fitx, yvals, curv)
 
-    if True:
-        plt.imshow(img)
-        plt.pause(0)
-
-    return img    
+    return position    
 
 def show_and_save(sensor_data):
     if show_camera:
@@ -374,13 +358,11 @@ def run_carla_client(host, port):
             sem = sensor_data.get('CameraSemanticSegmentation').data
             depth = sensor_data.get('CameraDepth').data
             img = sensor_data.get('CameraRGB').data
-            process_image(sem, img)
+            position = process_image(sem, img)
             show_and_save(sensor_data)
 
-            start_offroad, left, right = distance_to_side(sem, depth)
-            print(start_offroad, left, right)
-
-            cte = left - right
+            cte = position/10
+            #print(position)
 
             steer_value = UpdateError(cte)
 
