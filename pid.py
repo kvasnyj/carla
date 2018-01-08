@@ -20,11 +20,11 @@ from Line import Line
 
 image_filename_format = '/home/kvasnyj/temp/images/{:s}/image_{:0>5d}.png'
 show_camera = False
-save_to_disk = False
+save_to_disk = True
 
 Kp = 0.003
 Ki = 0
-Kd = 0.035
+Kd = 0 # 0.035
 prev_cte = 0
 int_cte = 0
 frame = 0
@@ -84,9 +84,9 @@ def warper(img):
 def sem2bin(img):
     bin = np.uint8(img == 7)*255
 
-    #high_thresh, thresh_im = cv2.threshold(bin, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    #lowThresh = 0.5 * high_thresh
     bin = cv2.Canny(bin, 0, 255)
+
+    # bin[0:350, :] = 0
 
     return bin
 
@@ -126,58 +126,56 @@ def curvature(leftx, lefty, rightx, righty, debug = False):
     lefty = np.float32(lefty)
     righty = np.float32(righty)
 
-    left_fit = np.polyfit(lefty, leftx, 2)
-    right_fit = np.polyfit(righty, rightx, 2)
-
-    # Define y-value where we want radius of curvature
-    y_eval = np.max(lefty)
-    left_curverad = ((1 + (2*left_fit[0]*y_eval + left_fit[1])**2)**1.5) \
-                                 /np.absolute(2*left_fit[0])
-    right_curverad = ((1 + (2*right_fit[0]*y_eval + right_fit[1])**2)**1.5) \
-                                    /np.absolute(2*right_fit[0])
-
-    if debug: print(left_curverad, right_curverad)
-
-
-    left_fit_cr = np.polyfit(lefty , leftx , 2)
-    right_fit_cr = np.polyfit(righty , rightx , 2)
-    left_curverad = ((1 + (2 * left_fit_cr[0] * y_eval + left_fit_cr[1]) ** 2) ** 1.5) \
-                    / np.absolute(2 * left_fit_cr[0])
-    right_curverad = ((1 + (2 * right_fit_cr[0] * y_eval + right_fit_cr[1]) ** 2) ** 1.5) \
-                     / np.absolute(2 * right_fit_cr[0])
-    # Now our radius of curvature is in meters
-    if debug: print(left_curverad, 'm', right_curverad, 'm')
-
     yvals = np.arange(h - h / 2, h, 1.0)
+    left_curverad, right_curverad = 0, 0
+
+    left_fit, right_fit = None, None
+    if len(lefty)>5: 
+        y_eval = np.max(lefty)
+        left_fit = np.polyfit(lefty, leftx, 2)
+        left_curverad = ((1 + (2*left_fit[0]*y_eval + left_fit[1])**2)**1.5) \
+                                 /np.absolute(2*left_fit[0])
+        left_fit_cr = np.polyfit(lefty , leftx , 2)
+        left_curverad = ((1 + (2 * left_fit_cr[0] * y_eval + left_fit_cr[1]) ** 2) ** 1.5) \
+                    / np.absolute(2 * left_fit_cr[0])
+    
     left_fitx = sanity_check(left_lane, left_fit, yvals,  left_curverad)
+
+        
+    if len(righty)>5: 
+        y_eval = np.max(righty)
+        right_fit = np.polyfit(righty, rightx, 2)
+        right_curverad = ((1 + (2*right_fit[0]*y_eval + right_fit[1])**2)**1.5) \
+                                    /np.absolute(2*right_fit[0])
+        right_fit_cr = np.polyfit(righty , rightx , 2)
+        right_curverad = ((1 + (2 * right_fit_cr[0] * y_eval + right_fit_cr[1]) ** 2) ** 1.5) \
+                     / np.absolute(2 * right_fit_cr[0])
+    
     right_fitx = sanity_check(right_lane, right_fit, yvals, right_curverad)
 
-    return left_fitx, right_fitx, yvals, (left_curverad + right_curverad)/2
+    return left_fitx, right_fitx, yvals
 
 def sanity_check(lane, polyfit, yvals, curvature):
-    if  len(lane.polyfit) == 0: #new object
+    if  len(lane.polyfit) <= 5:
         lane.radius_of_curvature = curvature
         lane.polyfit = polyfit
-        lane.detected = True
         lane.count_skip = 0
     else:
         a = np.column_stack((lane.polyfit[0] * yvals ** 2 + lane.polyfit[1] * yvals + lane.polyfit[2], yvals))
         b = np.column_stack((polyfit[0] * yvals ** 2 + polyfit[1] * yvals + polyfit[2], yvals))
         ret = cv2.matchShapes(a, b, 1, 0.0)
 
-        if (ret < 0.005) | (lane.count_skip > 10):
+        if True | (ret < 0.005) | (lane.count_skip > 10):
             lane.radius_of_curvature = curvature
             lane.polyfit = polyfit
-            lane.detected = True
             lane.count_skip = 0
         else:
-            lane.detected = False
             lane.count_skip += 1
 
     return lane.polyfit[0] * yvals ** 2 + lane.polyfit[1] * yvals + lane.polyfit[2]
 
 
-def fillPoly(undist, warped, left_fitx, right_fitx, yvals, curv):
+def fillPoly(undist, warped, left_fitx, right_fitx, yvals):
     # Create an image to draw the lines on
     warp_zero = np.zeros_like(warped).astype(np.uint8)
     color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
@@ -204,18 +202,22 @@ def fillPoly(undist, warped, left_fitx, right_fitx, yvals, curv):
 
     pts = np.argwhere(warped[:, :])
     position = w/2
-    left  = np.min(pts[(pts[:,1] < position) ][:,1])
-    right = np.max(pts[(pts[:,1] > position) ][:,1])
+    left  = np.mean(pts[(pts[:,1] < position) ][:,1])
+    right = np.mean(pts[(pts[:,1] > position) ][:,1])
+    width = right - left 
     center = (left + right)/2
     position = position - center
 
-    #print(left, right, center, position)
+    print(left, right, center, position)
 
-    if False:
+    if show_camera:
         plt.imshow(img)
         plt.pause(0.001)
 
-    return position - 41
+    if save_to_disk:
+        cv2.imwrite(image_filename_format.format('Polly', frame), result)
+
+    return position 
 
 def process_image(src_sem, src_img):
     global h, w, warp_src, warp_dst
@@ -226,22 +228,24 @@ def process_image(src_sem, src_img):
     img = np.copy(src_sem)
     img = warper(img)
     img = sem2bin(img)
+    if save_to_disk:
+        cv2.imwrite(image_filename_format.format('Bin', frame), img)
     
     leftx, lefty, rightx, righty = peaks_histogram(img)
-    left_fitx, right_fitx, yvals, curv = curvature(leftx, lefty, rightx, righty)
-    position = fillPoly(src_img, img, left_fitx, right_fitx, yvals, curv)
+    left_fitx, right_fitx, yvals = curvature(leftx, lefty, rightx, righty)
+    position = fillPoly(src_img, img, left_fitx, right_fitx, yvals)
 
     return position    
 
 def show_and_save(sensor_data):
-    if show_camera:
+    if save_to_disk:
         img_sem = sensor_data.get('CameraSemanticSegmentation').data
         img = np.copy(sensor_data.get('CameraRGB').data)
         img_depth = np.copy(sensor_data.get('CameraDepth').data)
         img_depth = img_depth*255
 
-        for i in range(img_size[0]):
-            for j in range(img_size[1]):
+        for i in range(h):
+            for j in range(w):
                 sem = img_sem[i][j]
                 if sem == 0:
                     img[i][j] = [0, 0, 0]
@@ -272,9 +276,7 @@ def show_and_save(sensor_data):
                 else:
                     img[i][j] = [255, 255, 255]
 
-        plt.imshow(img)
-        plt.savefig(image_filename_format.format('plot', frame))
-        plt.pause(0.001)
+        cv2.imwrite(image_filename_format.format('plot', frame), img)
 
     if save_to_disk:
         # for name, image in sensor_data.items():
@@ -297,8 +299,8 @@ def run_carla_client(host, port):
         settings.set(
             SynchronousMode=True,
             SendNonPlayerAgentsInfo=True,
-            NumberOfVehicles=20,
-            NumberOfPedestrians=40,
+            NumberOfVehicles=0,
+            NumberOfPedestrians=0,
             WeatherId=1)  # random.choice([1, 3, 7, 8, 14]))
         settings.randomize_seeds()
 
@@ -347,24 +349,28 @@ def run_carla_client(host, port):
 
         while (True):
             frame += 1
+            print("---------------", frame)
             # Read the data produced by the server this frame.
             measurements, sensor_data = client.read_data()
 
             # Print some of the measurements.
-            print_measurements(measurements)
+            #print_measurements(measurements)
 
 
 
             sem = sensor_data.get('CameraSemanticSegmentation').data
-            depth = sensor_data.get('CameraDepth').data
+            #depth = sensor_data.get('CameraDepth').data
             img = sensor_data.get('CameraRGB').data
             position = process_image(sem, img)
             show_and_save(sensor_data)
 
-            cte = position/10
-            #print(position)
+            cte = position
 
             steer_value = UpdateError(cte)
+            if steer_value > 1: steer_value = 1
+            if steer_value < -1: steer_value = -1
+
+            print(steer_value)
 
             throttle = 1;
 
