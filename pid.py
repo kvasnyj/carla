@@ -20,11 +20,11 @@ from Line import Line
 
 image_filename_format = '/home/kvasnyj/temp/images/{:s}/image_{:0>5d}.png'
 show_camera = False
-save_to_disk = True
+save_to_disk = False
 
-Kp = 0.003
+Kp = 0.01
 Ki = 0
-Kd = 0 # 0.035
+Kd = 0.005
 prev_cte = 0
 int_cte = 0
 frame = 0
@@ -42,8 +42,8 @@ def UpdateError(cte):
     err += (1 + abs(cte)) * (1 + abs(cte))
 
     steer = -Kp * cte - Kd * diff_cte - Ki * int_cte
-    if steer > 0.6: steer = 0.6
-    if steer < -0.6: steer = -0.6
+    if steer > 0.3: steer = 0.3
+    if steer < -0.3: steer = -0.3
 
     print(cte, steer, err)
 
@@ -202,13 +202,19 @@ def fillPoly(undist, warped, left_fitx, right_fitx, yvals):
 
     pts = np.argwhere(warped[:, :])
     position = w/2
-    left  = np.mean(pts[(pts[:,1] < position) ][:,1])
-    right = np.mean(pts[(pts[:,1] > position) ][:,1])
-    width = right - left 
-    center = (left + right)/2
-    position = position - center
 
-    print(left, right, center, position)
+    #pts[:,1] [pts[:,1] >= position + 40 ] = position + 40
+
+    left  = np.mean(pts[(pts[:,1] < position) & (pts[:,0] > 300)][:,1])
+    right = np.mean(pts[(pts[:,1] > position) & (pts[:,0] > 300)][:,1])
+    
+    #center = (left + right)/2
+    #position = position - center
+
+
+    position = -(right-w/2-40)
+
+    print(left, right, position)
 
     if show_camera:
         plt.imshow(img)
@@ -367,12 +373,12 @@ def run_carla_client(host, port):
             cte = position
 
             steer_value = UpdateError(cte)
-            if steer_value > 1: steer_value = 1
-            if steer_value < -1: steer_value = -1
 
             print(steer_value)
 
             throttle = 1;
+            if abs(steer_value)>=0.1: 
+                throttle = 0.5
 
             if  (measurements.player_measurements.forward_speed >= 30):
                 throttle = 0
