@@ -23,7 +23,7 @@ show_camera = False
 save_to_disk = False
 
 Kp = 0.008
-Ki = 0
+Ki = 0.0001
 Kd = 0.001
 prev_cte = 0
 int_cte = 0
@@ -45,7 +45,7 @@ def UpdateError(cte):
     if steer > 0.3: steer = 0.3
     if steer < -0.3: steer = -0.3
 
-    print(cte, steer, err)
+    print(cte, diff_cte, int_cte)
 
     return steer
 
@@ -377,8 +377,7 @@ def run_carla_client(host, port):
             print(steer_value)
 
             throttle = 1;
-            if abs(steer_value)>=0.1: 
-                throttle = 0.5
+
 
             if  (measurements.player_measurements.forward_speed >= 30):
                 throttle = 0
