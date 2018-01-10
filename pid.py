@@ -22,9 +22,9 @@ image_filename_format = '/home/kvasnyj/temp/images/{:s}/image_{:0>5d}.png'
 show_camera = False
 save_to_disk = False
 
-Kp = 0.01
+Kp = 0.008
 Ki = 0
-Kd = 0.005
+Kd = 0.001
 prev_cte = 0
 int_cte = 0
 frame = 0
@@ -205,14 +205,14 @@ def fillPoly(undist, warped, left_fitx, right_fitx, yvals):
 
     #pts[:,1] [pts[:,1] >= position + 40 ] = position + 40
 
-    left  = np.mean(pts[(pts[:,1] < position) & (pts[:,0] > 300)][:,1])
-    right = np.mean(pts[(pts[:,1] > position) & (pts[:,0] > 300)][:,1])
+    left  = np.mean(pts[(pts[:,1] < position) & (pts[:,0] > 410)][:,1])
+    right = np.mean(pts[(pts[:,1] > position) & (pts[:,0] > 410)][:,1])
     
     #center = (left + right)/2
     #position = position - center
 
 
-    position = -(right-w/2-40)
+    position = -(right-w/2-40)-10
 
     print(left, right, position)
 
