@@ -20,11 +20,11 @@ from Line import Line
 
 image_filename_format = '/home/kvasnyj/temp/images/{:s}/image_{:0>5d}.png'
 show_camera = False
-save_to_disk = False
+save_to_disk = True
 
 Kp = 0.008
 Ki = 0.0001
-Kd = 0.001
+Kd = 0
 prev_cte = 0
 int_cte = 0
 frame = 0
@@ -33,6 +33,8 @@ err = 0
 # image shape
 h, w = None, None
 warp_src, warp_dst = [], []
+
+video = None
 
 def UpdateError(cte):
     global prev_cte, int_cte, err
@@ -243,7 +245,10 @@ def process_image(src_sem, src_img):
 
     return position    
 
-def show_and_save(sensor_data):
+def show_and_save(sensor_data, steering):
+    global video
+    if frame<28: return
+
     if save_to_disk:
         img_sem = sensor_data.get('CameraSemanticSegmentation').data
         img = np.copy(sensor_data.get('CameraRGB').data)
@@ -285,22 +290,17 @@ def show_and_save(sensor_data):
         cv2.imwrite(image_filename_format.format('plot', frame), img)
 
     if save_to_disk:
-        # for name, image in sensor_data.items():
-        sensor_data.get('CameraRGB').save_to_disk(image_filename_format.format('CameraRGB', frame))
-
+        #sensor_data.get('CameraRGB').save_to_disk(image_filename_format.format('CameraRGB', frame))
+        if video == None: 
+            video = cv2.VideoWriter('/home/kvasnyj/temp/carla.avi', cv2.VideoWriter_fourcc(*"MJPG"), 10, (w,h))
+        img = np.copy(sensor_data.get('CameraRGB').data)
+        cv2.putText(img, "Steering = {:10.4f}".format(steering), (400, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        video.write(img)
 
 def run_carla_client(host, port):
     global frame
-    # We assume the CARLA server is already waiting for a client to connect at
-    # host:port. To create a connection we can use the `make_carla_client`
-    # context manager, it creates a CARLA client object and starts the
-    # connection. It will throw an exception if something goes wrong. The
-    # context manager makes sure the connection is always cleaned up on exit.
     with make_carla_client(host, port) as client:
         print('CarlaClient connected')
-        # Create a CarlaSettings object. This object is a wrapper around
-        # the CarlaSettings.ini file. Here we set the configuration we
-        # want for the new episode.
         settings = CarlaSettings()
         settings.set(
             SynchronousMode=True,
@@ -310,19 +310,11 @@ def run_carla_client(host, port):
             WeatherId=1)  # random.choice([1, 3, 7, 8, 14]))
         settings.randomize_seeds()
 
-        # Now we want to add a couple of cameras to the player vehicle.
-        # We will collect the images produced by these cameras every
-        # frame.
-
-        # The default camera captures RGB images of the scene.
         camera0 = Camera('CameraRGB')
-        # Set image resolution in pixels.
         camera0.set_image_size(800, 600)
-        # Set its position relative to the car in centimeters.
         camera0.set_position(30, 0, 130)
         settings.add_sensor(camera0)
 
-        # Let's add another camera producing ground-truth depth.
         camera1 = Camera('CameraDepth', PostProcessing='Depth')
         camera1.set_image_size(800, 600)
         camera1.set_position(30, 0, 130)
@@ -333,19 +325,11 @@ def run_carla_client(host, port):
         camera2.set_position(30, 0, 130)
         settings.add_sensor(camera2)
 
-        # Now we load these settings into the server. The server replies
-        # with a scene description containing the available start spots for
-        # the player. Here we can provide a CarlaSettings object or a
-        # CarlaSettings.ini file as string.
         scene = client.load_settings(settings)
 
-        # Choose one player start at random.
         number_of_player_starts = len(scene.player_start_spots)
-        player_start = 0  # random.randint(0, max(0, number_of_player_starts - 1))
+        player_start = 1  # random.randint(0, max(0, number_of_player_starts - 1))
 
-        # Notify the server that we want to start the episode at the
-        # player_start index. This function blocks until the server is ready
-        # to start the episode.
         print('Starting...')
         client.start_episode(player_start)
 
@@ -353,42 +337,31 @@ def run_carla_client(host, port):
             plt.ion()
             plt.show()
 
-        while (True):
+        while (frame < 400):
             frame += 1
             print("---------------", frame)
-            # Read the data produced by the server this frame.
             measurements, sensor_data = client.read_data()
 
-            # Print some of the measurements.
             #print_measurements(measurements)
-
-
+            #measurements.non_player_agents[0]
 
             sem = sensor_data.get('CameraSemanticSegmentation').data
             #depth = sensor_data.get('CameraDepth').data
             img = sensor_data.get('CameraRGB').data
             position = process_image(sem, img)
-            show_and_save(sensor_data)
 
             cte = position
 
             steer_value = UpdateError(cte)
 
             print(steer_value)
+            show_and_save(sensor_data, steer_value)
 
             throttle = 1;
 
 
             if  (measurements.player_measurements.forward_speed >= 30):
                 throttle = 0
-
-            # We can access the encoded data of a given image as numpy
-            # array using its "data" property. For instance, to get the
-            # depth value (normalized) at pixel X, Y
-            #
-            #     depth_array = sensor_data['CameraDepth'].data
-            #     value_at_pixel = depth_array[Y, X]
-            #
 
             client.send_control(
                 steer=steer_value,
@@ -440,7 +413,6 @@ def main():
             logging.exception(exception)
             sys.exit(1)
 
-
 if __name__ == '__main__':
 
     try:
@@ -448,5 +420,8 @@ if __name__ == '__main__':
         right_lane = Line()
 
         main()
+
+        cv2.destroyAllWindows()
+        if video != None: video.release()
     except KeyboardInterrupt:
         print('\nCancelled by user. Bye!')
