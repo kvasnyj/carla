@@ -1,5 +1,4 @@
 # ~/carla/CarlaUE4.sh /Game/Maps/Town01 -carla-server -fps=15 -windowed -ResX=800 -ResY=600 
-
 from __future__ import print_function
 
 import argparse
