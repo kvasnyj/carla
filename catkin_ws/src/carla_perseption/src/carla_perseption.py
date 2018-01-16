@@ -25,20 +25,20 @@ class CarlaPerseption(object):
 
         rospy.spin()
 
-def main():
-    while True:
-        try:
-            #run_carla_client('localhost', 2000)
+    def main():
+        while True:
+            try:
+                #run_carla_client('localhost', 2000)
 
-            print('Done.')
-            return
+                print('Done.')
+                return
 
-        except TCPConnectionError as error:
-            rospy.logerr(error)
-            time.sleep(1)
-        except Exception as exception:
-            rospy.logerr(exception)
-            sys.exit(1)
+            except TCPConnectionError as error:
+                rospy.logerr(error)
+                time.sleep(1)
+            except Exception as exception:
+                rospy.logerr(exception)
+                sys.exit(1)
 
 if __name__ == '__main__':
     try:

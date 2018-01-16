@@ -9,7 +9,7 @@
         "pythonPath": "${config:python.pythonPath}",
         "program": "${file}",
         "cwd": "${workspaceFolder}",
-        "env": {},
+        "env": {"PYTHONPATH": "/opt/ros/kinetic/lib/python2.7/dist-packages"},
         "envFile": "${workspaceFolder}/.env",
         "debugOptions": [
             "RedirectOutput"
