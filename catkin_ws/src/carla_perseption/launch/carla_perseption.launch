@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<launch>
+    <node pkg="carla_perseption" type="carla_perseption.py" name="carla_perseption" />
+</launch>
