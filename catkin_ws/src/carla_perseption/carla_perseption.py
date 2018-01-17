@@ -21,7 +21,7 @@ from styx_msgs.msg import CarState
 
 class CarlaPerseption(object):
     def __init__(self):
-        self.waypoints = None
+        self.carstate = None
 
         rospy.logdebug("CarlaPerseption started")
         rospy.init_node('carla_perseption', log_level=rospy.DEBUG)
@@ -30,22 +30,55 @@ class CarlaPerseption(object):
 
         rospy.spin()
 
-    def main():
-        while True:
-            try:
-                #run_carla_client('localhost', 2000)
+def run_carla_client(host, port):
+    global frame
+    with make_carla_client(host, port) as client:
+        rospy.logdebug('CarlaClient connected')
+        settings = CarlaSettings()
+        settings.set(
+            SynchronousMode=True,
+            SendNonPlayerAgentsInfo=True,
+            NumberOfVehicles=0,
+            NumberOfPedestrians=0,
+            WeatherId=1)  # random.choice([1, 3, 7, 8, 14]))
+        settings.randomize_seeds()
 
-                #self.carstate_pub.publish(carstate)
+        cameraSeg = Camera('CameraSemanticSegmentation', PostProcessing='SemanticSegmentation')
+        cameraSeg.set_image_size(800, 600)
+        cameraSeg.set_position(30, 0, 130)
+        settings.add_sensor(cameraSeg)
 
-                print('Done.')
-                return
+        scene = client.load_settings(settings)
 
-            except TCPConnectionError as error:
-                rospy.logerr(error)
-                time.sleep(1)
-            except Exception as exception:
-                rospy.logerr(exception)
-                sys.exit(1)
+        number_of_player_starts = len(scene.player_start_spots)
+        player_start = 1  # random.randint(0, max(0, number_of_player_starts - 1))
+
+        client.start_episode(player_start)
+
+        while (true):
+            measurements, sensor_data = client.read_data()
+
+            sem = sensor_data.get('CameraSemanticSegmentation').data
+            self.carstate = new CarState()
+            self.carstate.position = process_image(sem, img)
+            self.carstate.speed = measurements.player_measurements.forward_speed
+
+            self.carstate_pub.publish(carstate)
+
+def main():
+    while True:
+        try:
+            run_carla_client('localhost', 2000)
+
+            print('Done.')
+            return
+
+        except TCPConnectionError as error:
+            rospy.logerr(error)
+            time.sleep(1)
+        except Exception as exception:
+            rospy.logerr(exception)
+            sys.exit(1)
 
 if __name__ == '__main__':
     try:
