@@ -10,6 +10,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 import cv2
 
+import sys
+sys.path.insert(0, '/home/kvasnyj/Dropbox/carla/')
 from carla.client import make_carla_client
 from carla.sensor import Camera
 from carla.settings import CarlaSettings

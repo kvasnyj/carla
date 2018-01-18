@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 
-#~/carla/CarlaUE4.sh /Game/Maps/Town01 -carla-server -fps=15 -windowed -ResX=800 -ResY=600 
+#~/carla/CarlaUE4.sh /Game/Maps/Town01 -carla-server -fps=15 -windowed -ResX=800 -ResY=600 -world-port=2005
 
 import rospy
-
 import random
 import time
 import numpy as np
@@ -29,12 +28,7 @@ class CarlaPerseption(object):
     right_lane = Line()
 
     def __init__(self):
-        rospy.logdebug("CarlaPerseption started")
-        rospy.init_node('carla_perseption', log_level=rospy.DEBUG)
-
         self.carstate_pub = rospy.Publisher('carstate', CarState, queue_size=1)
-
-        rospy.spin()
 
     def define_warper(self):
         basex = 520
@@ -92,7 +86,9 @@ class CarlaPerseption(object):
 
         return position
 
-def run_carla_client(host, port):
+def run_carla_client(host='localhost', port=2000):
+    perseption = CarlaPerseption()
+
     with make_carla_client(host, port) as client:
         rospy.logdebug('CarlaClient connected')
         settings = CarlaSettings()
@@ -116,9 +112,7 @@ def run_carla_client(host, port):
 
         client.start_episode(player_start)
 
-        perseption = CarlaPerseption()
-
-        while True:
+        while not rospy.is_shutdown():
             measurements, sensor_data = client.read_data()
 
             sem = sensor_data.get('CameraSemanticSegmentation').data
@@ -128,10 +122,22 @@ def run_carla_client(host, port):
 
             perseption.carstate_pub.publish(carstate)
 
+            client.send_control(
+                steer=0,
+                throttle=1,
+                brake=False,
+                hand_brake=False,
+                reverse=False)
+
+            time.sleep(1)
+
 def main():
-    while True:
+    rospy.logdebug("CarlaPerseption started")
+    rospy.init_node('carla_perseption', log_level=rospy.DEBUG)
+
+    while not rospy.is_shutdown():
         try:
-            run_carla_client('localhost', 2000)
+            run_carla_client()
 
             return
 
