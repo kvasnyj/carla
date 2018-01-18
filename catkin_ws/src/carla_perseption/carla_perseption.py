@@ -1,20 +1,24 @@
+#!/usr/bin/env python
+
+#~/carla/CarlaUE4.sh /Game/Maps/Town01 -carla-server -fps=15 -windowed -ResX=800 -ResY=600 
+
 import rospy
 
-#import random
-#import time
+import random
+import time
 import numpy as np
 import cv2
+
 import sys
-sys.path.insert(0, '/carla')
+sys.path.insert(0, '/home/kvasnyj/Dropbox/carla/')
 from carla.client import make_carla_client
 from carla.sensor import Camera
 from carla.settings import CarlaSettings
 from carla.tcp import TCPConnectionError
-from carla.util import print_over_same_line
 from Line import Line
 
 from geometry_msgs.msg import PoseStamped, TwistStamped
-from std_msgs.msg import float32
+from std_msgs.msg import Float32
 from styx_msgs.msg import CarState
 
 class CarlaPerseption(object):
@@ -25,8 +29,6 @@ class CarlaPerseption(object):
     right_lane = Line()
 
     def __init__(self):
-        self.carstate = None
-
         rospy.logdebug("CarlaPerseption started")
         rospy.init_node('carla_perseption', log_level=rospy.DEBUG)
 
@@ -34,7 +36,7 @@ class CarlaPerseption(object):
 
         rospy.spin()
 
-    def define_warper():
+    def define_warper(self):
         basex = 520
         width = 100
         height = 100
@@ -47,46 +49,46 @@ class CarlaPerseption(object):
         ])
 
         dst = np.float32([
-            [(w-width)/2, basex],
-            [w - (w-width)/2, basex],
-            [(w-width)/2, basex-height],
-            [w - (w-width)/2, basex-height]
+            [(self.w-width)/2, basex],
+            [self.w - (self.w-width)/2, basex],
+            [(self.w-width)/2, basex-height],
+            [self.w - (self.w-width)/2, basex-height]
         ])
 
         return src, dst
 
-    def warper(img):
+    def warper(self, img):
         # Compute and apply perpective transform
-        M = cv2.getPerspectiveTransform(warp_src, warp_dst)
+        M = cv2.getPerspectiveTransform(self.warp_src, self.warp_dst)
         warped = cv2.warpPerspective(img, M, (img.shape[1], img.shape[0]), flags=cv2.INTER_NEAREST)  # keep same size as input image
 
         return warped
 
-    def sem2bin(img):
+    def sem2bin(self, img):
         bin = np.uint8(img == 7)*255
 
         bin = cv2.Canny(bin, 0, 255)
 
         return bin
 
-    def define_position(warped)
+    def define_position(self, warped):
         pts = np.argwhere(warped[:, :])
-        position = w/2
+        position = self.w/2
         left  = np.mean(pts[(pts[:,1] < position) & (pts[:,0] > 410)][:,1])
         right = np.mean(pts[(pts[:,1] > position) & (pts[:,0] > 410)][:,1])
-        position = -(right-w/2-40)-10
+        position = -(right-self.w/2-40)-10
 
         return position
 
-    def process_image(src_sem):
-        if h == None: h = src_sem.shape[0]
-        if w == None: w = src_sem.shape[1]
-        if  len(warp_src) == 0: warp_src, warp_dst = define_warper()
+    def process_image(self, src_sem):
+        if self.h == None: self.h = src_sem.shape[0]
+        if self.w == None: self.w = src_sem.shape[1]
+        if  len(self.warp_src) == 0: self.warp_src, self.warp_dst = self.define_warper()
 
         img = np.copy(src_sem)
-        img = warper(img)
-        img = sem2bin(img)
-        position = define_position(img)
+        img = self.warper(img)
+        img = self.sem2bin(img)
+        position = self.define_position(img)
 
         return position
 
@@ -116,22 +118,21 @@ def run_carla_client(host, port):
 
         perseption = CarlaPerseption()
 
-        while (true):
+        while True:
             measurements, sensor_data = client.read_data()
 
             sem = sensor_data.get('CameraSemanticSegmentation').data
-            self.carstate = new CarState()
-            self.carstate.position = perseption.process_image(sem)
-            self.carstate.speed = measurements.player_measurements.forward_speed
+            carstate = CarState()
+            carstate.position = perseption.process_image(sem)
+            carstate.speed = measurements.player_measurements.forward_speed
 
-            self.carstate_pub.publish(carstate)
+            perseption.carstate_pub.publish(carstate)
 
 def main():
     while True:
         try:
             run_carla_client('localhost', 2000)
 
-            print('Done.')
             return
 
         except TCPConnectionError as error:
@@ -145,4 +146,4 @@ if __name__ == '__main__':
     try:
         main()
     except rospy.ROSInterruptException:
-        rospy.logerr('Could not start waypoint updater node.')
+        rospy.logerr('Could not start carla_perseption node.')
