@@ -15,7 +15,6 @@ from carla.client import make_carla_client
 from carla.sensor import Camera
 from carla.settings import CarlaSettings
 from carla.tcp import TCPConnectionError
-from carla.util import print_over_same_line
 from Line import Line
 
 from geometry_msgs.msg import PoseStamped, TwistStamped
@@ -147,4 +146,4 @@ if __name__ == '__main__':
     try:
         main()
     except rospy.ROSInterruptException:
-        rospy.logerr('Could not start waypoint updater node.')
+        rospy.logerr('Could not start carla_perseption node.')
