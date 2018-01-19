@@ -15,14 +15,13 @@ let std_msgs = _finder('std_msgs');
 
 //-----------------------------------------------------------
 
-class CarState {
+class CarControl {
   constructor(initObj={}) {
     if (initObj === null) {
       // initObj === null is a special case for deserialization where we don't initialize fields
       this.header = null;
-      this.position = null;
-      this.speed = null;
-      this.camera1d = null;
+      this.throttle = null;
+      this.steer = null;
     }
     else {
       if (initObj.hasOwnProperty('header')) {
@@ -31,79 +30,67 @@ class CarState {
       else {
         this.header = new std_msgs.msg.Header();
       }
-      if (initObj.hasOwnProperty('position')) {
-        this.position = initObj.position
+      if (initObj.hasOwnProperty('throttle')) {
+        this.throttle = initObj.throttle
       }
       else {
-        this.position = 0.0;
+        this.throttle = 0.0;
       }
-      if (initObj.hasOwnProperty('speed')) {
-        this.speed = initObj.speed
-      }
-      else {
-        this.speed = 0.0;
-      }
-      if (initObj.hasOwnProperty('camera1d')) {
-        this.camera1d = initObj.camera1d
+      if (initObj.hasOwnProperty('steer')) {
+        this.steer = initObj.steer
       }
       else {
-        this.camera1d = [];
+        this.steer = 0.0;
       }
     }
   }
 
   static serialize(obj, buffer, bufferOffset) {
-    // Serializes a message object of type CarState
+    // Serializes a message object of type CarControl
     // Serialize message field [header]
     bufferOffset = std_msgs.msg.Header.serialize(obj.header, buffer, bufferOffset);
-    // Serialize message field [position]
-    bufferOffset = _serializer.float32(obj.position, buffer, bufferOffset);
-    // Serialize message field [speed]
-    bufferOffset = _serializer.float32(obj.speed, buffer, bufferOffset);
-    // Serialize message field [camera1d]
-    bufferOffset = _arraySerializer.uint8(obj.camera1d, buffer, bufferOffset, null);
+    // Serialize message field [throttle]
+    bufferOffset = _serializer.float32(obj.throttle, buffer, bufferOffset);
+    // Serialize message field [steer]
+    bufferOffset = _serializer.float32(obj.steer, buffer, bufferOffset);
     return bufferOffset;
   }
 
   static deserialize(buffer, bufferOffset=[0]) {
-    //deserializes a message object of type CarState
+    //deserializes a message object of type CarControl
     let len;
-    let data = new CarState(null);
+    let data = new CarControl(null);
     // Deserialize message field [header]
     data.header = std_msgs.msg.Header.deserialize(buffer, bufferOffset);
-    // Deserialize message field [position]
-    data.position = _deserializer.float32(buffer, bufferOffset);
-    // Deserialize message field [speed]
-    data.speed = _deserializer.float32(buffer, bufferOffset);
-    // Deserialize message field [camera1d]
-    data.camera1d = _arrayDeserializer.uint8(buffer, bufferOffset, null)
+    // Deserialize message field [throttle]
+    data.throttle = _deserializer.float32(buffer, bufferOffset);
+    // Deserialize message field [steer]
+    data.steer = _deserializer.float32(buffer, bufferOffset);
     return data;
   }
 
   static getMessageSize(object) {
     let length = 0;
     length += std_msgs.msg.Header.getMessageSize(object.header);
-    length += object.camera1d.length;
-    return length + 12;
+    return length + 8;
   }
 
   static datatype() {
     // Returns string type for a message object
-    return 'styx_msgs/CarState';
+    return 'styx_msgs/CarControl';
   }
 
   static md5sum() {
     //Returns md5sum for a message object
-    return 'e925c87f59560d5f1ad5982fd69710ba';
+    return 'fde3dbdce53ea8efc0e0dd6ef6da3ed4';
   }
 
   static messageDefinition() {
     // Returns full string definition for message
     return `
     Header header
-    float32 position
-    float32 speed
-    uint8[] camera1d
+    float32 throttle
+    float32 steer
     ================================================================================
     MSG: std_msgs/Header
     # Standard metadata for higher-level stamped data types.
@@ -130,7 +117,7 @@ class CarState {
     if (typeof msg !== 'object' || msg === null) {
       msg = {};
     }
-    const resolved = new CarState(null);
+    const resolved = new CarControl(null);
     if (msg.header !== undefined) {
       resolved.header = std_msgs.msg.Header.Resolve(msg.header)
     }
@@ -138,29 +125,22 @@ class CarState {
       resolved.header = new std_msgs.msg.Header()
     }
 
-    if (msg.position !== undefined) {
-      resolved.position = msg.position;
+    if (msg.throttle !== undefined) {
+      resolved.throttle = msg.throttle;
     }
     else {
-      resolved.position = 0.0
+      resolved.throttle = 0.0
     }
 
-    if (msg.speed !== undefined) {
-      resolved.speed = msg.speed;
+    if (msg.steer !== undefined) {
+      resolved.steer = msg.steer;
     }
     else {
-      resolved.speed = 0.0
-    }
-
-    if (msg.camera1d !== undefined) {
-      resolved.camera1d = msg.camera1d;
-    }
-    else {
-      resolved.camera1d = []
+      resolved.steer = 0.0
     }
 
     return resolved;
     }
 };
 
-module.exports = CarState;
+module.exports = CarControl;

@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-    <!--DBW Node -->
+    <include file="$(find carla_server)/launch/carla_server.launch"/>
+
     <include file="$(find carla_perseption)/launch/carla_perseption.launch"/>
 </launch>

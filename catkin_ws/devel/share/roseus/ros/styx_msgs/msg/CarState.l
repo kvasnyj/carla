@@ -16,7 +16,7 @@
 
 (defclass styx_msgs::CarState
   :super ros::object
-  :slots (_header _position _speed ))
+  :slots (_header _position _speed _camera1d ))
 
 (defmethod styx_msgs::CarState
   (:init
@@ -24,11 +24,13 @@
     ((:header __header) (instance std_msgs::Header :init))
     ((:position __position) 0.0)
     ((:speed __speed) 0.0)
+    ((:camera1d __camera1d) (make-array 0 :initial-element 0 :element-type :char))
     )
    (send-super :init)
    (setq _header __header)
    (setq _position (float __position))
    (setq _speed (float __speed))
+   (setq _camera1d __camera1d)
    self)
   (:header
    (&rest __header)
@@ -43,6 +45,9 @@
   (:speed
    (&optional __speed)
    (if __speed (setq _speed __speed)) _speed)
+  (:camera1d
+   (&optional __camera1d)
+   (if __camera1d (setq _camera1d __camera1d)) _camera1d)
   (:serialization-length
    ()
    (+
@@ -52,6 +57,8 @@
     4
     ;; float32 _speed
     4
+    ;; uint8[] _camera1d
+    (* 1    (length _camera1d)) 4
     ))
   (:serialize
    (&optional strm)
@@ -63,6 +70,9 @@
        (sys::poke _position (send s :buffer) (send s :count) :float) (incf (stream-count s) 4)
      ;; float32 _speed
        (sys::poke _speed (send s :buffer) (send s :count) :float) (incf (stream-count s) 4)
+     ;; uint8[] _camera1d
+     (write-long (length _camera1d) s)
+     (princ _camera1d s)
      ;;
      (if (null strm) (get-output-stream-string s))))
   (:deserialize
@@ -73,16 +83,21 @@
      (setq _position (sys::peek buf ptr- :float)) (incf ptr- 4)
    ;; float32 _speed
      (setq _speed (sys::peek buf ptr- :float)) (incf ptr- 4)
+   ;; uint8[] _camera1d
+   (let ((n (sys::peek buf ptr- :integer))) (incf ptr- 4)
+     (setq _camera1d (make-array n :element-type :char))
+     (replace _camera1d buf :start2 ptr-) (incf ptr- n))
    ;;
    self)
   )
 
-(setf (get styx_msgs::CarState :md5sum-) "eed37c050fe49e576f73ff9efc639e66")
+(setf (get styx_msgs::CarState :md5sum-) "e925c87f59560d5f1ad5982fd69710ba")
 (setf (get styx_msgs::CarState :datatype-) "styx_msgs/CarState")
 (setf (get styx_msgs::CarState :definition-)
       "Header header
 float32 position
 float32 speed
+uint8[] camera1d
 ================================================================================
 MSG: std_msgs/Header
 # Standard metadata for higher-level stamped data types.
@@ -105,6 +120,6 @@ string frame_id
 
 
 
-(provide :styx_msgs/CarState "eed37c050fe49e576f73ff9efc639e66")
+(provide :styx_msgs/CarState "e925c87f59560d5f1ad5982fd69710ba")
 
 

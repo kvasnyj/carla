@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<launch>
+    <node pkg="carla_server" type="carla_server.py" name="carla_server" />
+</launch>

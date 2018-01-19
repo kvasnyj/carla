@@ -1,24 +1,19 @@
 #!/usr/bin/env python
 
-#~/carla/CarlaUE4.sh /Game/Maps/Town01 -carla-server -fps=15 -windowed -ResX=800 -ResY=600 -world-port=2005
+#~/carla/CarlaUE4.sh /Game/Maps/Town01 -carla-server -fps=15 -windowed -ResX=800 -ResY=600
 
 import rospy
-import random
 import time
 import numpy as np
 import cv2
 
-import sys
-sys.path.insert(0, '/home/kvasnyj/Dropbox/carla/')
-from carla.client import make_carla_client
-from carla.sensor import Camera
-from carla.settings import CarlaSettings
-from carla.tcp import TCPConnectionError
 from Line import Line
 
 from geometry_msgs.msg import PoseStamped, TwistStamped
 from std_msgs.msg import Float32
-from styx_msgs.msg import CarState
+from styx_msgs.msg import CarState, CarControl
+
+carcontrol_pub = None
 
 class CarlaPerseption(object):
     h, w = None, None
@@ -26,9 +21,6 @@ class CarlaPerseption(object):
 
     left_lane = Line()
     right_lane = Line()
-
-    def __init__(self):
-        self.carstate_pub = rospy.Publisher('carstate', CarState, queue_size=1)
 
     def define_warper(self):
         basex = 520
@@ -86,67 +78,24 @@ class CarlaPerseption(object):
 
         return position
 
-def run_carla_client(host='localhost', port=2000):
-    perseption = CarlaPerseption()
+def carstate_cb(msg):
+    carstate.position = perseption.process_image(np.asarray(msg.camera1d).reshape(800, 600))
+    
+    car_control = CarControl()
+    car_control.steer = 0
+    car_control.throttle = 1
 
-    with make_carla_client(host, port) as client:
-        rospy.logdebug('CarlaClient connected')
-        settings = CarlaSettings()
-        settings.set(
-            SynchronousMode=True,
-            SendNonPlayerAgentsInfo=True,
-            NumberOfVehicles=0,
-            NumberOfPedestrians=0,
-            WeatherId=1)  # random.choice([1, 3, 7, 8, 14]))
-        settings.randomize_seeds()
+    carcontrol_pub.publish(car_control)
 
-        cameraSeg = Camera('CameraSemanticSegmentation', PostProcessing='SemanticSegmentation')
-        cameraSeg.set_image_size(800, 600)
-        cameraSeg.set_position(30, 0, 130)
-        settings.add_sensor(cameraSeg)
-
-        scene = client.load_settings(settings)
-
-        number_of_player_starts = len(scene.player_start_spots)
-        player_start = 1  # random.randint(0, max(0, number_of_player_starts - 1))
-
-        client.start_episode(player_start)
-
-        while not rospy.is_shutdown():
-            measurements, sensor_data = client.read_data()
-
-            sem = sensor_data.get('CameraSemanticSegmentation').data
-            carstate = CarState()
-            carstate.position = perseption.process_image(sem)
-            carstate.speed = measurements.player_measurements.forward_speed
-
-            perseption.carstate_pub.publish(carstate)
-
-            client.send_control(
-                steer=0,
-                throttle=1,
-                brake=False,
-                hand_brake=False,
-                reverse=False)
-
-            time.sleep(1)
 
 def main():
+    perseption = CarlaPerseption()
+
     rospy.logdebug("CarlaPerseption started")
     rospy.init_node('carla_perseption', log_level=rospy.DEBUG)
 
-    while not rospy.is_shutdown():
-        try:
-            run_carla_client()
-
-            return
-
-        except TCPConnectionError as error:
-            rospy.logerr(error)
-            time.sleep(1)
-        except Exception as exception:
-            rospy.logerr(exception)
-            sys.exit(1)
+    carcontrol_pub = rospy.Publisher('carstate', CarState, queue_size=1)
+    rospy.Subscriber('/CarState', CarState, carstate_cb)    
 
 if __name__ == '__main__':
     try:

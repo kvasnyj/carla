@@ -5,4 +5,6 @@
           POSITION
           SPEED-VAL
           SPEED
+          CAMERA1D-VAL
+          CAMERA1D
 ))

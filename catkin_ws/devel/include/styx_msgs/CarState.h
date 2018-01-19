@@ -27,12 +27,14 @@ struct CarState_
   CarState_()
     : header()
     , position(0.0)
-    , speed(0.0)  {
+    , speed(0.0)
+    , camera1d()  {
     }
   CarState_(const ContainerAllocator& _alloc)
     : header(_alloc)
     , position(0.0)
-    , speed(0.0)  {
+    , speed(0.0)
+    , camera1d(_alloc)  {
   (void)_alloc;
     }
 
@@ -46,6 +48,9 @@ struct CarState_
 
    typedef float _speed_type;
   _speed_type speed;
+
+   typedef std::vector<uint8_t, typename ContainerAllocator::template rebind<uint8_t>::other >  _camera1d_type;
+  _camera1d_type camera1d;
 
 
 
@@ -80,13 +85,23 @@ namespace message_traits
 
 
 
-// BOOLTRAITS {'HasHeader': True, 'IsMessage': True, 'IsFixedSize': False}
-// {'std_msgs': ['/opt/ros/kinetic/share/std_msgs/cmake/../msg'], 'geometry_msgs': ['/opt/ros/kinetic/share/geometry_msgs/cmake/../msg'], 'styx_msgs': ['/home/kvasnyj/Dropbox/carla/catkin_ws/src/styx_msgs/msg'], 'sensor_msgs': ['/opt/ros/kinetic/share/sensor_msgs/cmake/../msg']}
+// BOOLTRAITS {'IsFixedSize': False, 'HasHeader': True, 'IsMessage': True}
+// {'styx_msgs': ['/home/kvasnyj/Dropbox/carla/catkin_ws/src/styx_msgs/msg'], 'sensor_msgs': ['/opt/ros/kinetic/share/sensor_msgs/cmake/../msg'], 'geometry_msgs': ['/opt/ros/kinetic/share/geometry_msgs/cmake/../msg'], 'std_msgs': ['/opt/ros/kinetic/share/std_msgs/cmake/../msg']}
 
 // !!!!!!!!!!! ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__gt__', '__hash__', '__init__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', '_parsed_fields', 'constants', 'fields', 'full_name', 'has_header', 'header_present', 'names', 'package', 'parsed_fields', 'short_name', 'text', 'types']
 
 
 
+
+template <class ContainerAllocator>
+struct IsFixedSize< ::styx_msgs::CarState_<ContainerAllocator> >
+  : FalseType
+  { };
+
+template <class ContainerAllocator>
+struct IsFixedSize< ::styx_msgs::CarState_<ContainerAllocator> const>
+  : FalseType
+  { };
 
 template <class ContainerAllocator>
 struct HasHeader< ::styx_msgs::CarState_<ContainerAllocator> >
@@ -108,28 +123,18 @@ struct IsMessage< ::styx_msgs::CarState_<ContainerAllocator> const>
   : TrueType
   { };
 
-template <class ContainerAllocator>
-struct IsFixedSize< ::styx_msgs::CarState_<ContainerAllocator> >
-  : FalseType
-  { };
-
-template <class ContainerAllocator>
-struct IsFixedSize< ::styx_msgs::CarState_<ContainerAllocator> const>
-  : FalseType
-  { };
-
 
 template<class ContainerAllocator>
 struct MD5Sum< ::styx_msgs::CarState_<ContainerAllocator> >
 {
   static const char* value()
   {
-    return "eed37c050fe49e576f73ff9efc639e66";
+    return "e925c87f59560d5f1ad5982fd69710ba";
   }
 
   static const char* value(const ::styx_msgs::CarState_<ContainerAllocator>&) { return value(); }
-  static const uint64_t static_value1 = 0xeed37c050fe49e57ULL;
-  static const uint64_t static_value2 = 0x6f73ff9efc639e66ULL;
+  static const uint64_t static_value1 = 0xe925c87f59560d5fULL;
+  static const uint64_t static_value2 = 0x1ad5982fd69710baULL;
 };
 
 template<class ContainerAllocator>
@@ -151,6 +156,7 @@ struct Definition< ::styx_msgs::CarState_<ContainerAllocator> >
     return "Header header\n\
 float32 position\n\
 float32 speed\n\
+uint8[] camera1d\n\
 ================================================================================\n\
 MSG: std_msgs/Header\n\
 # Standard metadata for higher-level stamped data types.\n\
@@ -189,6 +195,7 @@ namespace serialization
       stream.next(m.header);
       stream.next(m.position);
       stream.next(m.speed);
+      stream.next(m.camera1d);
     }
 
     ROS_DECLARE_ALLINONE_SERIALIZER
@@ -214,6 +221,12 @@ struct Printer< ::styx_msgs::CarState_<ContainerAllocator> >
     Printer<float>::stream(s, indent + "  ", v.position);
     s << indent << "speed: ";
     Printer<float>::stream(s, indent + "  ", v.speed);
+    s << indent << "camera1d[]" << std::endl;
+    for (size_t i = 0; i < v.camera1d.size(); ++i)
+    {
+      s << indent << "  camera1d[" << i << "]: ";
+      Printer<uint8_t>::stream(s, indent + "  ", v.camera1d[i]);
+    }
   }
 };
 
