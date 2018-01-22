@@ -61,7 +61,7 @@ class CarState {
     // Serialize message field [speed]
     bufferOffset = _serializer.float32(obj.speed, buffer, bufferOffset);
     // Serialize message field [camera1d]
-    bufferOffset = _arraySerializer.uint8(obj.camera1d, buffer, bufferOffset, null);
+    bufferOffset = _arraySerializer.uint32(obj.camera1d, buffer, bufferOffset, null);
     return bufferOffset;
   }
 
@@ -76,14 +76,14 @@ class CarState {
     // Deserialize message field [speed]
     data.speed = _deserializer.float32(buffer, bufferOffset);
     // Deserialize message field [camera1d]
-    data.camera1d = _arrayDeserializer.uint8(buffer, bufferOffset, null)
+    data.camera1d = _arrayDeserializer.uint32(buffer, bufferOffset, null)
     return data;
   }
 
   static getMessageSize(object) {
     let length = 0;
     length += std_msgs.msg.Header.getMessageSize(object.header);
-    length += object.camera1d.length;
+    length += 4 * object.camera1d.length;
     return length + 12;
   }
 
@@ -94,7 +94,7 @@ class CarState {
 
   static md5sum() {
     //Returns md5sum for a message object
-    return 'e925c87f59560d5f1ad5982fd69710ba';
+    return '5f5ce100f2337443c1c11d6317e57dfc';
   }
 
   static messageDefinition() {
@@ -103,7 +103,7 @@ class CarState {
     Header header
     float32 position
     float32 speed
-    uint8[] camera1d
+    uint32[] camera1d
     ================================================================================
     MSG: std_msgs/Header
     # Standard metadata for higher-level stamped data types.

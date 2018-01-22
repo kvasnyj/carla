@@ -49,7 +49,7 @@ struct CarState_
    typedef float _speed_type;
   _speed_type speed;
 
-   typedef std::vector<uint8_t, typename ContainerAllocator::template rebind<uint8_t>::other >  _camera1d_type;
+   typedef std::vector<uint32_t, typename ContainerAllocator::template rebind<uint32_t>::other >  _camera1d_type;
   _camera1d_type camera1d;
 
 
@@ -85,23 +85,13 @@ namespace message_traits
 
 
 
-// BOOLTRAITS {'IsFixedSize': False, 'HasHeader': True, 'IsMessage': True}
-// {'styx_msgs': ['/home/kvasnyj/Dropbox/carla/catkin_ws/src/styx_msgs/msg'], 'sensor_msgs': ['/opt/ros/kinetic/share/sensor_msgs/cmake/../msg'], 'geometry_msgs': ['/opt/ros/kinetic/share/geometry_msgs/cmake/../msg'], 'std_msgs': ['/opt/ros/kinetic/share/std_msgs/cmake/../msg']}
+// BOOLTRAITS {'HasHeader': True, 'IsFixedSize': False, 'IsMessage': True}
+// {'sensor_msgs': ['/opt/ros/kinetic/share/sensor_msgs/cmake/../msg'], 'std_msgs': ['/opt/ros/kinetic/share/std_msgs/cmake/../msg'], 'geometry_msgs': ['/opt/ros/kinetic/share/geometry_msgs/cmake/../msg'], 'styx_msgs': ['/home/kvasnyj/Dropbox/carla/catkin_ws/src/styx_msgs/msg']}
 
 // !!!!!!!!!!! ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__gt__', '__hash__', '__init__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', '_parsed_fields', 'constants', 'fields', 'full_name', 'has_header', 'header_present', 'names', 'package', 'parsed_fields', 'short_name', 'text', 'types']
 
 
 
-
-template <class ContainerAllocator>
-struct IsFixedSize< ::styx_msgs::CarState_<ContainerAllocator> >
-  : FalseType
-  { };
-
-template <class ContainerAllocator>
-struct IsFixedSize< ::styx_msgs::CarState_<ContainerAllocator> const>
-  : FalseType
-  { };
 
 template <class ContainerAllocator>
 struct HasHeader< ::styx_msgs::CarState_<ContainerAllocator> >
@@ -111,6 +101,16 @@ struct HasHeader< ::styx_msgs::CarState_<ContainerAllocator> >
 template <class ContainerAllocator>
 struct HasHeader< ::styx_msgs::CarState_<ContainerAllocator> const>
   : TrueType
+  { };
+
+template <class ContainerAllocator>
+struct IsFixedSize< ::styx_msgs::CarState_<ContainerAllocator> >
+  : FalseType
+  { };
+
+template <class ContainerAllocator>
+struct IsFixedSize< ::styx_msgs::CarState_<ContainerAllocator> const>
+  : FalseType
   { };
 
 template <class ContainerAllocator>
@@ -129,12 +129,12 @@ struct MD5Sum< ::styx_msgs::CarState_<ContainerAllocator> >
 {
   static const char* value()
   {
-    return "e925c87f59560d5f1ad5982fd69710ba";
+    return "5f5ce100f2337443c1c11d6317e57dfc";
   }
 
   static const char* value(const ::styx_msgs::CarState_<ContainerAllocator>&) { return value(); }
-  static const uint64_t static_value1 = 0xe925c87f59560d5fULL;
-  static const uint64_t static_value2 = 0x1ad5982fd69710baULL;
+  static const uint64_t static_value1 = 0x5f5ce100f2337443ULL;
+  static const uint64_t static_value2 = 0xc1c11d6317e57dfcULL;
 };
 
 template<class ContainerAllocator>
@@ -156,7 +156,7 @@ struct Definition< ::styx_msgs::CarState_<ContainerAllocator> >
     return "Header header\n\
 float32 position\n\
 float32 speed\n\
-uint8[] camera1d\n\
+uint32[] camera1d\n\
 ================================================================================\n\
 MSG: std_msgs/Header\n\
 # Standard metadata for higher-level stamped data types.\n\
@@ -225,7 +225,7 @@ struct Printer< ::styx_msgs::CarState_<ContainerAllocator> >
     for (size_t i = 0; i < v.camera1d.size(); ++i)
     {
       s << indent << "  camera1d[" << i << "]: ";
-      Printer<uint8_t>::stream(s, indent + "  ", v.camera1d[i]);
+      Printer<uint32_t>::stream(s, indent + "  ", v.camera1d[i]);
     }
   }
 };

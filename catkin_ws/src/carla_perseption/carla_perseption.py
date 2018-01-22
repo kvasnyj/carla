@@ -73,27 +73,28 @@ class CarlaPerseption(object):
 
         return position
 
-#carcontrol_pub = None
 
 def carstate_cb(msg):
-    msg.position = perseption.process_image(np.asarray(msg.camera1d).reshape(800, 600))
+    rospy.loginfo("CarlaPerseption carstate_cb fired")
+    camera1d = np.asarray(msg.camera1d)
+    camera2d = camera1d.reshape(800, 600)
+    msg.position = perseption.process_image(camera2d)
 
     car_control = CarControl()
     car_control.steer = 0
     car_control.throttle = 1
-
-    carcontrol_pub.publish(car_control)
-
-def main():
-    perseption = CarlaPerseption()
-
-    rospy.logdebug("CarlaPerseption started")
-    rospy.init_node('carla_perseption', log_level=rospy.DEBUG)
-
-    carcontrol_pub = rospy.Publisher('carstate', CarState, queue_size=1)
-    rospy.Subscriber('/CarState', CarState, carstate_cb)
+    carstate_pub.publish(car_control)
 
 if __name__ == '__main__':
+    perseption = CarlaPerseption()
+    rospy.init_node('carla_perseption')
+    rospy.loginfo("CarlaPerseption started")
+
+    carstate_pub = rospy.Publisher('carcontrol', CarControl, queue_size=1)
+    #carstate_pub = rospy.Publisher('carstate_perseption', CarState, queue_size=1)
+    rospy.Subscriber('/carstate_source', CarState, carstate_cb)
+    rospy.spin()
+
     try:
         main()
     except rospy.ROSInterruptException:

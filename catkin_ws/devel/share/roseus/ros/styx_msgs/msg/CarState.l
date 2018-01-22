@@ -24,7 +24,7 @@
     ((:header __header) (instance std_msgs::Header :init))
     ((:position __position) 0.0)
     ((:speed __speed) 0.0)
-    ((:camera1d __camera1d) (make-array 0 :initial-element 0 :element-type :char))
+    ((:camera1d __camera1d) (make-array 0 :initial-element 0 :element-type :integer))
     )
    (send-super :init)
    (setq _header __header)
@@ -57,8 +57,8 @@
     4
     ;; float32 _speed
     4
-    ;; uint8[] _camera1d
-    (* 1    (length _camera1d)) 4
+    ;; uint32[] _camera1d
+    (* 4    (length _camera1d)) 4
     ))
   (:serialize
    (&optional strm)
@@ -70,9 +70,11 @@
        (sys::poke _position (send s :buffer) (send s :count) :float) (incf (stream-count s) 4)
      ;; float32 _speed
        (sys::poke _speed (send s :buffer) (send s :count) :float) (incf (stream-count s) 4)
-     ;; uint8[] _camera1d
+     ;; uint32[] _camera1d
      (write-long (length _camera1d) s)
-     (princ _camera1d s)
+     (dotimes (i (length _camera1d))
+       (write-long (elt _camera1d i) s)
+       )
      ;;
      (if (null strm) (get-output-stream-string s))))
   (:deserialize
@@ -83,21 +85,24 @@
      (setq _position (sys::peek buf ptr- :float)) (incf ptr- 4)
    ;; float32 _speed
      (setq _speed (sys::peek buf ptr- :float)) (incf ptr- 4)
-   ;; uint8[] _camera1d
-   (let ((n (sys::peek buf ptr- :integer))) (incf ptr- 4)
-     (setq _camera1d (make-array n :element-type :char))
-     (replace _camera1d buf :start2 ptr-) (incf ptr- n))
+   ;; uint32[] _camera1d
+   (let (n)
+     (setq n (sys::peek buf ptr- :integer)) (incf ptr- 4)
+     (setq _camera1d (instantiate integer-vector n))
+     (dotimes (i n)
+     (setf (elt _camera1d i) (sys::peek buf ptr- :integer)) (incf ptr- 4)
+     ))
    ;;
    self)
   )
 
-(setf (get styx_msgs::CarState :md5sum-) "e925c87f59560d5f1ad5982fd69710ba")
+(setf (get styx_msgs::CarState :md5sum-) "5f5ce100f2337443c1c11d6317e57dfc")
 (setf (get styx_msgs::CarState :datatype-) "styx_msgs/CarState")
 (setf (get styx_msgs::CarState :definition-)
       "Header header
 float32 position
 float32 speed
-uint8[] camera1d
+uint32[] camera1d
 ================================================================================
 MSG: std_msgs/Header
 # Standard metadata for higher-level stamped data types.
@@ -120,6 +125,6 @@ string frame_id
 
 
 
-(provide :styx_msgs/CarState "e925c87f59560d5f1ad5982fd69710ba")
+(provide :styx_msgs/CarState "5f5ce100f2337443c1c11d6317e57dfc")
 
 
