@@ -7,20 +7,15 @@ import time
 import numpy as np
 import cv2
 
-from Line import Line
-
 from geometry_msgs.msg import PoseStamped, TwistStamped
 from std_msgs.msg import Float32
 from styx_msgs.msg import CarState, CarControl
 
-carcontrol_pub = None
-
 class CarlaPerseption(object):
-    h, w = None, None
     warp_src, warp_dst = [], []
 
-    left_lane = Line()
-    right_lane = Line()
+    def __init__(self):
+        self.h, self.w = 0, 0
 
     def define_warper(self):
         basex = 520
@@ -67,8 +62,8 @@ class CarlaPerseption(object):
         return position
 
     def process_image(self, src_sem):
-        if self.h == None: self.h = src_sem.shape[0]
-        if self.w == None: self.w = src_sem.shape[1]
+        if self.h == 0: self.h = src_sem.shape[0]
+        if self.w == 0: self.w = src_sem.shape[1]
         if  len(self.warp_src) == 0: self.warp_src, self.warp_dst = self.define_warper()
 
         img = np.copy(src_sem)
@@ -78,6 +73,8 @@ class CarlaPerseption(object):
 
         return position
 
+#carcontrol_pub = None
+
 def carstate_cb(msg):
     msg.position = perseption.process_image(np.asarray(msg.camera1d).reshape(800, 600))
 
@@ -86,7 +83,6 @@ def carstate_cb(msg):
     car_control.throttle = 1
 
     carcontrol_pub.publish(car_control)
-
 
 def main():
     perseption = CarlaPerseption()
