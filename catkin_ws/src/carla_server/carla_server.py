@@ -46,31 +46,29 @@ class CarlaServer(object):
         player_start = 1  # random.randint(0, max(0, number_of_player_starts - 1))
 
         self.client.start_episode(player_start)
-        rospy.loginfo("----start episode")
 
 
     def read_data(self):
-        rospy.loginfo("----read data")
         measurements, sensor_data = self.client.read_data()
 
         sem = sensor_data.get('CameraSemanticSegmentation').data
+
         carstate = CarState()
         carstate.speed = measurements.player_measurements.forward_speed
-        carstate.camera1d = np.asarray(sem).astype(int).flatten().tolist()
+        carstate.camera1d = np.asarray(sem).astype(int).reshape(-1).tolist()
 
         self.carstate_pub.publish(carstate)
 
 
     def carcontrol_cb(self, msg):
-        rospy.loginfo("----carcontrol_cb fired")
         if msg != None:
-            rospy.logdebug("carcontrol_cb fired. steer: %s, throttle: %s", msg.steer, msg.throttle)
+            #rospy.loginfo("carcontrol_cb fired. steer: %s, throttle: %s", msg.steer, msg.throttle)
             self.client.send_control(
-                steer=msg.steer,
-                throttle=msg.throttle,
-                brake=False,
-                hand_brake=False,
-                reverse=False)   
+                steer = msg.steer,
+                throttle = msg.throttle,
+                brake = False,
+                hand_brake = False,
+                reverse = False)   
         
         self.read_data()     
           

@@ -3,4 +3,8 @@
     <include file="$(find carla_server)/launch/carla_server.launch"/>
 
     <include file="$(find carla_perseption)/launch/carla_perseption.launch"/>
+
+    <include file="$(find carla_planning)/launch/carla_planning.launch"/>
+
+    <include file="$(find carla_control)/launch/carla_control.launch"/>
 </launch>

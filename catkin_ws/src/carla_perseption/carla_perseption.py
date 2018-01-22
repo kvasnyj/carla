@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-#~/carla/CarlaUE4.sh /Game/Maps/Town01 -carla-server -fps=15 -windowed -ResX=800 -ResY=600
-
 import rospy
 import time
 import numpy as np
@@ -12,10 +10,10 @@ from std_msgs.msg import Float32
 from styx_msgs.msg import CarState, CarControl
 
 class CarlaPerseption(object):
-    warp_src, warp_dst = [], []
-
     def __init__(self):
-        self.h, self.w = 0, 0
+        self.h = 0
+        self.w = 0
+        self.warp_src, self.warp_dst = [], []
 
     def define_warper(self):
         basex = 520
@@ -62,8 +60,8 @@ class CarlaPerseption(object):
         return position
 
     def process_image(self, src_sem):
-        if self.h == 0: self.h = src_sem.shape[0]
-        if self.w == 0: self.w = src_sem.shape[1]
+        if self.h == 0: self.h = src_sem.shape[1]
+        if self.w == 0: self.w = src_sem.shape[0]
         if  len(self.warp_src) == 0: self.warp_src, self.warp_dst = self.define_warper()
 
         img = np.copy(src_sem)
@@ -75,27 +73,21 @@ class CarlaPerseption(object):
 
 
 def carstate_cb(msg):
-    rospy.loginfo("CarlaPerseption carstate_cb fired")
     camera1d = np.asarray(msg.camera1d)
     camera2d = camera1d.reshape(800, 600)
     msg.position = perseption.process_image(camera2d)
 
-    car_control = CarControl()
-    car_control.steer = 0
-    car_control.throttle = 1
-    carstate_pub.publish(car_control)
+    carstate_pub.publish(msg)
 
 if __name__ == '__main__':
-    perseption = CarlaPerseption()
-    rospy.init_node('carla_perseption')
-    rospy.loginfo("CarlaPerseption started")
-
-    carstate_pub = rospy.Publisher('carcontrol', CarControl, queue_size=1)
-    #carstate_pub = rospy.Publisher('carstate_perseption', CarState, queue_size=1)
-    rospy.Subscriber('/carstate_source', CarState, carstate_cb)
-    rospy.spin()
-
     try:
-        main()
+        perseption = CarlaPerseption()
+        rospy.init_node('carla_perseption')
+        rospy.loginfo("CarlaPerseption started")
+
+        carstate_pub = rospy.Publisher('carstate_perseption', CarState, queue_size=1)
+        rospy.Subscriber('/carstate_source', CarState, carstate_cb)
+        rospy.spin()
+
     except rospy.ROSInterruptException:
         rospy.logerr('Could not start carla_perseption node.')
