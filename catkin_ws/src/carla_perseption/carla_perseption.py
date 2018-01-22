@@ -79,8 +79,8 @@ class CarlaPerseption(object):
         return position
 
 def carstate_cb(msg):
-    carstate.position = perseption.process_image(np.asarray(msg.camera1d).reshape(800, 600))
-    
+    msg.position = perseption.process_image(np.asarray(msg.camera1d).reshape(800, 600))
+
     car_control = CarControl()
     car_control.steer = 0
     car_control.throttle = 1
@@ -95,7 +95,7 @@ def main():
     rospy.init_node('carla_perseption', log_level=rospy.DEBUG)
 
     carcontrol_pub = rospy.Publisher('carstate', CarState, queue_size=1)
-    rospy.Subscriber('/CarState', CarState, carstate_cb)    
+    rospy.Subscriber('/CarState', CarState, carstate_cb)
 
 if __name__ == '__main__':
     try:
