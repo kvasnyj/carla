@@ -70,7 +70,7 @@ class CarlaPerseption(object):
         img = self.sem2bin(img)
         position = self.define_position(img)
 
-        cv2.imwrite('/home/kvasnyj/temp/ros.jpeg', img)
+        #cv2.imwrite('/home/kvasnyj/temp/ros.jpeg', img)
 
         return position
 
