@@ -11,8 +11,8 @@ class CarlaControl(object):
         self.int_cte = 0
 
         self.Kp = 0.008
-        self.Ki = 0
-        self.Kd = 0# 0.0001
+        self.Ki = 0.0001
+        self.Kd = 0
 
     def update_error(self, cte):
         diff_cte = cte - self.prev_cte
@@ -23,7 +23,7 @@ class CarlaControl(object):
         if steer > 0.3: steer = 0.3
         if steer < -0.3: steer = -0.3
 
-        rospy.loginfo("cte: %s, diff_cte: %s, steer: %s", cte, diff_cte, steer)
+        rospy.loginfo("cte: %s, steer: %s", cte, steer)
 
         return steer        
   

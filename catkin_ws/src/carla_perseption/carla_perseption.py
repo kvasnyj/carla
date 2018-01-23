@@ -11,8 +11,7 @@ from styx_msgs.msg import CarState, CarControl
 
 class CarlaPerseption(object):
     def __init__(self):
-        self.h = 0
-        self.w = 0
+        self.h, self.w = 0, 0
         self.warp_src, self.warp_dst = [], []
 
     def define_warper(self):
@@ -57,11 +56,13 @@ class CarlaPerseption(object):
         right = np.mean(pts[(pts[:,1] > position) & (pts[:,0] > 410)][:,1])
         position = -(right-self.w/2-40)-10
 
+        #rospy.loginfo("left: %s, right: %s, position: %s", left, right, position)
+
         return position
 
     def process_image(self, src_sem):
-        if self.h == 0: self.h = src_sem.shape[1]
-        if self.w == 0: self.w = src_sem.shape[0]
+        if self.h == 0: self.h = src_sem.shape[0]
+        if self.w == 0: self.w = src_sem.shape[1]
         if  len(self.warp_src) == 0: self.warp_src, self.warp_dst = self.define_warper()
 
         img = np.copy(src_sem)
@@ -69,12 +70,14 @@ class CarlaPerseption(object):
         img = self.sem2bin(img)
         position = self.define_position(img)
 
+        cv2.imwrite('/home/kvasnyj/temp/ros.jpeg', img)
+
         return position
 
 
 def carstate_cb(msg):
     camera1d = np.asarray(msg.camera1d)
-    camera2d = camera1d.reshape(800, 600)
+    camera2d = camera1d.reshape(600, 800)
     msg.position = perseption.process_image(camera2d)
 
     carstate_pub.publish(msg)

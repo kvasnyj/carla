@@ -55,7 +55,9 @@ class CarlaServer(object):
 
         carstate = CarState()
         carstate.speed = measurements.player_measurements.forward_speed
-        carstate.camera1d = np.asarray(sem).astype(int).reshape(-1).tolist()
+        carstate.camera1d = np.asarray(sem).astype(int).flatten().tolist()
+
+        #cv2.imwrite('/home/kvasnyj/temp/ros_raw.jpeg', sem)
 
         self.carstate_pub.publish(carstate)
 
