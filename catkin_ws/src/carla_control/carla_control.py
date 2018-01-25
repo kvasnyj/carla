@@ -5,6 +5,7 @@ from geometry_msgs.msg import PoseStamped, TwistStamped
 from std_msgs.msg import Float32
 from styx_msgs.msg import CarState, CarControl
 
+# rosrun rqt_reconfigure rqt_reconfigure
 Kp = 0.008
 Ki = 0.0001
 Kd = 0.0
@@ -14,7 +15,7 @@ class CarlaControl(object):
         self.prev_cte = 0
         self.int_cte = 0
 
-        rospy.set_param_raw('PID', {'Kp': Kp, 'Ki': Ki, 'Kd': Kd})
+        rospy.set_param('PID', {'Kp': Kp, 'Ki': Ki, 'Kd': Kd})
 
     def update_error(self, cte):
         diff_cte = cte - self.prev_cte
