@@ -73,29 +73,30 @@ class CarlaServer(object):
     def pub_rviz(self, measurements, sensor_data):
         player_measurements = measurements.player_measurements
 
-        # scale = 0.001
-        # marker = Marker()
-        # marker.header.frame_id = "my_frame"
-        # marker.header.stamp    = rospy.get_rostime()
-        # marker.ns = "carla"
-        # marker.id = 0
-        # marker.type = Marker.CUBE
-        # marker.action = Marker.ADD;
-        # marker.pose.position.x = player_measurements.transform.location.x * scale 
-        # marker.pose.position.y = player_measurements.transform.location.y * scale
-        # marker.pose.position.z = 0
-        # marker.pose.orientation.x = 0.0;
-        # marker.pose.orientation.y = 0.0;
-        # marker.pose.orientation.z = 0.0;
-        # marker.pose.orientation.w = 1.0;
-        # marker.scale.x = 1.0
-        # marker.scale.y = 1.0
-        # marker.scale.z = 1.0
-        # marker.color.a = 1.0; 
-        # marker.color.r = 0.0;
-        # marker.color.g = 1.0;
-        # marker.color.b = 0.0;        
-        # self.marker_pub.publish(marker)
+        rospy.loginfo("pos: %s, %s", player_measurements.transform.location.x, player_measurements.transform.location.y)
+
+        marker = Marker()
+        marker.header.frame_id = "my_frame"
+        marker.header.stamp    = rospy.get_rostime()
+        marker.ns = "carla"
+        marker.id = 0
+        marker.type = Marker.ARROW
+        marker.action = Marker.ADD;
+        marker.pose.position.x = (player_measurements.transform.location.x - 29859)/1000
+        marker.pose.position.y = (player_measurements.transform.location.y - 13317)/1000
+        marker.pose.position.z = 0.0
+        marker.pose.orientation.x = player_measurements.transform.orientation.x;
+        marker.pose.orientation.y = player_measurements.transform.orientation.y;
+        marker.pose.orientation.z = 0.0;
+        marker.pose.orientation.w = 1.0;
+        marker.scale.x = 1.0
+        marker.scale.y = 1.0
+        marker.scale.z = 1.0
+        marker.color.a = 1.0; 
+        marker.color.r = 0.0;
+        marker.color.g = 1.0;
+        marker.color.b = 0.0;        
+        self.marker_pub.publish(marker)
 
         # http://docs.ros.org/api/sensor_msgs/html/msg/Image.html
         image = sensor_data.get('CameraRGB').data
