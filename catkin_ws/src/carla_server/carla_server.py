@@ -18,11 +18,17 @@ from carla.tcp import TCPConnectionError
 from geometry_msgs.msg import PoseStamped, TwistStamped
 from std_msgs.msg import Float32
 from styx_msgs.msg import CarState, CarControl
+from visualization_msgs.msg import Marker
+from sensor_msgs.msg import Image, CameraInfo
 
 class CarlaServer(object):
     def __init__(self, client):
         self.client = client
-        self.carstate_pub = rospy.Publisher('carstate_source', CarState, queue_size=1)
+        self.carstate_pub = rospy.Publisher('carstate_source', CarState, queue_size=10)
+        self.marker_pub = rospy.Publisher('car_marker', Marker, queue_size=10)
+        self.image_rgb_pub = rospy.Publisher('car_image_rgb', Image, queue_size=10)
+        self.image_sem_pub = rospy.Publisher('car_sem_rgb', Image, queue_size=10)
+
         rospy.Subscriber('/carcontrol', CarControl, self.carcontrol_cb)
 
         rospy.logdebug('CarlaClient connected')
@@ -40,6 +46,11 @@ class CarlaServer(object):
         cameraSeg.set_position(30, 0, 130)
         settings.add_sensor(cameraSeg)
 
+        cameraRGB = Camera('CameraRGB')
+        cameraRGB.set_image_size(800, 600)
+        cameraRGB.set_position(30, 0, 130)
+        settings.add_sensor(cameraRGB)       
+
         scene = self.client.load_settings(settings)
 
         number_of_player_starts = len(scene.player_start_spots)
@@ -52,15 +63,58 @@ class CarlaServer(object):
         measurements, sensor_data = self.client.read_data()
 
         sem = sensor_data.get('CameraSemanticSegmentation').data
+        self.pub_rviz(measurements, sensor_data)
 
         carstate = CarState()
         carstate.speed = measurements.player_measurements.forward_speed
         carstate.camera1d = np.asarray(sem).astype(int).flatten().tolist()
-
-        #cv2.imwrite('/home/kvasnyj/temp/ros_raw.jpeg', sem)
-
         self.carstate_pub.publish(carstate)
 
+    def pub_rviz(self, measurements, sensor_data):
+        player_measurements = measurements.player_measurements
+
+        # scale = 0.001
+        # marker = Marker()
+        # marker.header.frame_id = "my_frame"
+        # marker.header.stamp    = rospy.get_rostime()
+        # marker.ns = "carla"
+        # marker.id = 0
+        # marker.type = Marker.CUBE
+        # marker.action = Marker.ADD;
+        # marker.pose.position.x = player_measurements.transform.location.x * scale 
+        # marker.pose.position.y = player_measurements.transform.location.y * scale
+        # marker.pose.position.z = 0
+        # marker.pose.orientation.x = 0.0;
+        # marker.pose.orientation.y = 0.0;
+        # marker.pose.orientation.z = 0.0;
+        # marker.pose.orientation.w = 1.0;
+        # marker.scale.x = 1.0
+        # marker.scale.y = 1.0
+        # marker.scale.z = 1.0
+        # marker.color.a = 1.0; 
+        # marker.color.r = 0.0;
+        # marker.color.g = 1.0;
+        # marker.color.b = 0.0;        
+        # self.marker_pub.publish(marker)
+
+        # http://docs.ros.org/api/sensor_msgs/html/msg/Image.html
+        image = sensor_data.get('CameraRGB').data
+        image_rgb = Image()
+        image_rgb.encoding = 'bgr8'
+        image_rgb.height = image.shape[0]
+        image_rgb.width = image.shape[1]
+        image_rgb.step = image.shape[1] * 3
+        image_rgb.data = image.tostring()
+        self.image_rgb_pub.publish(image_rgb)
+
+        image_num = sensor_data.get('CameraSemanticSegmentation').data*20
+        image_sem = Image()
+        image_sem.encoding = 'mono8' # http://docs.ros.org/jade/api/sensor_msgs/html/image__encodings_8h_source.html
+        image_sem.height = image_num.shape[0]
+        image_sem.width = image_num.shape[1]
+        image_sem.step = image_num.shape[1] * 3
+        image_sem.data = image_num.tostring()
+        self.image_sem_pub.publish(image_sem)
 
     def carcontrol_cb(self, msg):
         if msg != None:
@@ -70,11 +124,10 @@ class CarlaServer(object):
                 throttle = msg.throttle,
                 brake = False,
                 hand_brake = False,
-                reverse = False)   
+                reverse = False) 
         
         self.read_data()     
           
-
 def main():
     rospy.loginfo("CarlaServer started")
     rospy.init_node('carla_server')
