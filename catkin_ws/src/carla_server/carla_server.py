@@ -32,7 +32,7 @@ class CarlaServer(object):
         rospy.Subscriber('/carcontrol', CarControl, self.carcontrol_cb)
 
         rospy.logdebug('CarlaClient connected')
-        settings = CarlaSettings()  
+        settings = CarlaSettings()
         settings.set(
             SynchronousMode=True,
             SendNonPlayerAgentsInfo=True,
@@ -49,7 +49,7 @@ class CarlaServer(object):
         cameraRGB = Camera('CameraRGB')
         cameraRGB.set_image_size(800, 600)
         cameraRGB.set_position(30, 0, 130)
-        settings.add_sensor(cameraRGB)       
+        settings.add_sensor(cameraRGB)
 
         scene = self.client.load_settings(settings)
 
@@ -72,8 +72,17 @@ class CarlaServer(object):
 
     def pub_rviz(self, measurements, sensor_data):
         player_measurements = measurements.player_measurements
+        location = player_measurements.transform.location
+        x = (location.x - 29859)/1000
+        y = (13317 - location.y)/1000
+        #rospy.loginfo("pos: %s, %s", player_measurements.transform.location.x, player_measurements.transform.location.y)
 
-        rospy.loginfo("pos: %s, %s", player_measurements.transform.location.x, player_measurements.transform.location.y)
+         br = tf.TransformBroadcaster()
+         br.sendTransform((x, y, 0),
+         (x, y, 0),
+         rospy.Time.now(),
+         "carla",
+         "world")
 
         marker = Marker()
         marker.header.frame_id = "my_frame"
@@ -81,21 +90,21 @@ class CarlaServer(object):
         marker.ns = "carla"
         marker.id = 0
         marker.type = Marker.ARROW
-        marker.action = Marker.ADD;
-        marker.pose.position.x = (player_measurements.transform.location.x - 29859)/1000
-        marker.pose.position.y = (player_measurements.transform.location.y - 13317)/1000
+        marker.action = Marker.ADD
+        marker.pose.position.x = x
+        marker.pose.position.y = y
         marker.pose.position.z = 0.0
-        marker.pose.orientation.x = player_measurements.transform.orientation.x;
-        marker.pose.orientation.y = player_measurements.transform.orientation.y;
-        marker.pose.orientation.z = 0.0;
-        marker.pose.orientation.w = 1.0;
+        marker.pose.orientation.x = player_measurements.transform.orientation.x
+        marker.pose.orientation.y = player_measurements.transform.orientation.y
+        marker.pose.orientation.z = 0.0
+        marker.pose.orientation.w = 1.0
         marker.scale.x = 1.0
         marker.scale.y = 1.0
         marker.scale.z = 1.0
-        marker.color.a = 1.0; 
-        marker.color.r = 0.0;
-        marker.color.g = 1.0;
-        marker.color.b = 0.0;        
+        marker.color.a = 1.0
+        marker.color.r = 0.0
+        marker.color.g = 1.0
+        marker.color.b = 0.0
         self.marker_pub.publish(marker)
 
         # http://docs.ros.org/api/sensor_msgs/html/msg/Image.html
@@ -125,10 +134,10 @@ class CarlaServer(object):
                 throttle = msg.throttle,
                 brake = False,
                 hand_brake = False,
-                reverse = False) 
-        
-        self.read_data()     
-          
+                reverse = False)
+
+        self.read_data()
+
 def main():
     rospy.loginfo("CarlaServer started")
     rospy.init_node('carla_server')
