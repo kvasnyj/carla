@@ -20,6 +20,7 @@ from std_msgs.msg import Float32
 from styx_msgs.msg import CarState, CarControl
 from visualization_msgs.msg import Marker
 from sensor_msgs.msg import Image, CameraInfo
+#import tf
 
 class CarlaServer(object):
     def __init__(self, client):
@@ -74,19 +75,19 @@ class CarlaServer(object):
     def pub_rviz(self, measurements, sensor_data):
         player_measurements = measurements.player_measurements
         location = player_measurements.transform.location
-        x = (location.x - 29859)/1000
-        y = (13317 - location.y)/1000
+        y = (location.x - 29859)/1000
+        x = (location.y - 13317)/1000
         #rospy.loginfo("pos: %s, %s", player_measurements.transform.location.x, player_measurements.transform.location.y)
 
-         br = tf.TransformBroadcaster()
-         br.sendTransform((x, y, 0),
-         (x, y, 0),
-         rospy.Time.now(),
-         "carla",
-         "world")
+        # br = tf.TransformBroadcaster()
+        # br.sendTransform((x, y, 0),
+        #     (x, y, 0),
+        #     rospy.Time.now(),
+        #     "carla",
+        #     "world")
 
         marker = Marker()
-        marker.header.frame_id = "world"
+        marker.header.frame_id = "my_frame"
         marker.header.stamp    = rospy.get_rostime()
         marker.ns = "carla"
         marker.id = 0
@@ -132,17 +133,27 @@ class CarlaServer(object):
             #rospy.loginfo("carcontrol_cb fired. steer: %s, throttle: %s", msg.steer, msg.throttle)
 
             marker = Marker()
-            marker.header.frame_id = "world"
+            marker.header.frame_id = "my_frame"
             marker.header.stamp    = rospy.get_rostime()
             marker.ns = "carla"
-            marker.id = 0
+            marker.id = 1
             marker.type = Marker.TEXT_VIEW_FACING
             marker.action = Marker.ADD
-            marker.text = "steer: %s, throttle: %s" % (msg.steer, msg.throttle)
+            marker.text = "steer: %6.3f, throttle: %s" % (msg.steer, msg.throttle)
+            marker.pose.position.x = 0.0
+            marker.pose.position.y = 10.0
+            marker.pose.position.z = 0.0
+            marker.pose.orientation.x = 0.0
+            marker.pose.orientation.y = 0.0
+            marker.pose.orientation.z = 0.0
+            marker.pose.orientation.w = 1.0
+            marker.scale.x = 1.0
+            marker.scale.y = 1.0
+            marker.scale.z = 1.0
             marker.color.a = 1.0
             marker.color.r = 0.0
-            marker.color.g = 1.0
-            marker.color.b = 0.0
+            marker.color.g = 0.0
+            marker.color.b = 1.0
             self.text_pub.publish(marker)
 
             self.client.send_control(
