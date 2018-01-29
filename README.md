@@ -11,4 +11,11 @@ My playground with Carla - open-source simulator for autonomous driving research
 	4. Control: PID controller
 	
 ![rosgraph](https://github.com/kvasnyj/carla/blob/master/catkin_ws/rosgraph.png "Rosgraph")
-	
+
+## Parameters
+* PID/Kp
+* PID/Pi
+* PID/Kd
+
+## RViz
+![rviz](https://github.com/kvasnyj/carla/blob/master/catkin_ws/rviz.png "RViz")
