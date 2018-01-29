@@ -26,6 +26,7 @@ class CarlaServer(object):
         self.client = client
         self.carstate_pub = rospy.Publisher('carstate_source', CarState, queue_size=10)
         self.marker_pub = rospy.Publisher('car_marker', Marker, queue_size=10)
+        self.text_pub = rospy.Publisher('car_text', Marker, queue_size=10)
         self.image_rgb_pub = rospy.Publisher('car_image_rgb', Image, queue_size=10)
         self.image_sem_pub = rospy.Publisher('car_sem_rgb', Image, queue_size=10)
 
@@ -85,7 +86,7 @@ class CarlaServer(object):
          "world")
 
         marker = Marker()
-        marker.header.frame_id = "my_frame"
+        marker.header.frame_id = "world"
         marker.header.stamp    = rospy.get_rostime()
         marker.ns = "carla"
         marker.id = 0
@@ -129,6 +130,21 @@ class CarlaServer(object):
     def carcontrol_cb(self, msg):
         if msg != None:
             #rospy.loginfo("carcontrol_cb fired. steer: %s, throttle: %s", msg.steer, msg.throttle)
+
+            marker = Marker()
+            marker.header.frame_id = "world"
+            marker.header.stamp    = rospy.get_rostime()
+            marker.ns = "carla"
+            marker.id = 0
+            marker.type = Marker.TEXT_VIEW_FACING
+            marker.action = Marker.ADD
+            marker.text = "steer: %s, throttle: %s" % (msg.steer, msg.throttle)
+            marker.color.a = 1.0
+            marker.color.r = 0.0
+            marker.color.g = 1.0
+            marker.color.b = 0.0
+            self.text_pub.publish(marker)
+
             self.client.send_control(
                 steer = msg.steer,
                 throttle = msg.throttle,
