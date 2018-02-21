@@ -38,8 +38,8 @@ class CarlaServer(object):
         settings.set(
             SynchronousMode=True,
             SendNonPlayerAgentsInfo=True,
-            NumberOfVehicles=0,
-            NumberOfPedestrians=0,
+            NumberOfVehicles=100,
+            NumberOfPedestrians=100,
             WeatherId=1)  # random.choice([1, 3, 7, 8, 14]))
         settings.randomize_seeds()
 

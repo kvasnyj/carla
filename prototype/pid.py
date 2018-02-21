@@ -21,7 +21,7 @@ from Line import Line
 
 image_filename_format = '/home/kvasnyj/temp/images/{:s}/image_{:0>5d}.png'
 show_camera = False
-save_to_disk = True
+save_to_disk = False
 
 Kp = 0.008
 Ki = 0.0001
@@ -178,31 +178,7 @@ def sanity_check(lane, polyfit, yvals, curvature):
     return lane.polyfit[0] * yvals ** 2 + lane.polyfit[1] * yvals + lane.polyfit[2]
 
 
-def fillPoly(undist, warped, left_fitx, right_fitx, yvals):
-    # Create an image to draw the lines on
-    warp_zero = np.zeros_like(warped).astype(np.uint8)
-    color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
-
-    # Recast the x and y points into usable format for cv2.fillPoly()
-    pts_left = np.array([np.transpose(np.vstack([left_fitx, yvals]))])
-    pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, yvals])))])
-    pts = np.hstack((pts_left, pts_right))
-
-    # Draw the lane onto the warped blank image
-    cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
-
-    # Warp the blank back to original image space using inverse perspective matrix (Minv)
-    Minv = cv2.getPerspectiveTransform(warp_dst, warp_src)
-    newwarp = cv2.warpPerspective(color_warp, Minv, (undist.shape[1], undist.shape[0]))
-    # Combine the result with the original image
-    result = cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
-
-    # Warp the blank back to original image space using inverse perspective matrix (Minv)
-    Minv = cv2.getPerspectiveTransform(warp_dst, warp_src)
-    newwarp = cv2.warpPerspective(color_warp, Minv, (undist.shape[1], undist.shape[0]))
-    # Combine the result with the original image
-    result = cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
-
+def define_position(warped):
     pts = np.argwhere(warped[:, :])
     position = w/2
 
@@ -226,7 +202,7 @@ def fillPoly(undist, warped, left_fitx, right_fitx, yvals):
     if save_to_disk:
         cv2.imwrite(image_filename_format.format('Polly', frame), result)
 
-    return position 
+    return int(left), int(right), position 
 
 def process_image(src_sem, src_img):
     global h, w, warp_src, warp_dst
@@ -235,16 +211,21 @@ def process_image(src_sem, src_img):
     if  len(warp_src) == 0: warp_src, warp_dst = define_warper()
         
     img = np.copy(src_sem)
-    img = warper(img)
-    img = sem2bin(img)
+    img_warped = warper(img)
+    img_bin = sem2bin(img_warped)
     if save_to_disk:
-        cv2.imwrite(image_filename_format.format('Bin', frame), img)
-    
-    leftx, lefty, rightx, righty = peaks_histogram(img)
-    left_fitx, right_fitx, yvals = curvature(leftx, lefty, rightx, righty)
-    position = fillPoly(src_img, img, left_fitx, right_fitx, yvals)
+        cv2.imwrite(image_filename_format.format('Bin', frame), img_bin)
 
-    return position    
+    left, right, position  = define_position(img_bin)
+
+    front = img_warped[h-300-10:h-300, int(left*1.1):int(right*0.9)]
+    front_car = 10 in front
+    front_ped = 4 in front
+
+    if front_car or front_ped: 
+        return float('nan')
+    else:
+        return position    
 
 def show_and_save(sensor_data, steering):
     global video
@@ -306,7 +287,7 @@ def run_carla_client(host, port):
         settings.set(
             SynchronousMode=True,
             SendNonPlayerAgentsInfo=True,
-            NumberOfVehicles=0,
+            NumberOfVehicles=100,
             NumberOfPedestrians=0,
             WeatherId=1)  # random.choice([1, 3, 7, 8, 14]))
         settings.randomize_seeds()
@@ -351,14 +332,19 @@ def run_carla_client(host, port):
             img = sensor_data.get('CameraRGB').data
             position = process_image(sem, img)
 
-            cte = position
+            if position != position:
+                throttle = 0
+                brake = True
+            else:
+                cte = position
+                brake = False
 
-            steer_value = UpdateError(cte)
+                steer_value = UpdateError(cte)
 
-            print(steer_value)
-            show_and_save(sensor_data, steer_value)
+                print(steer_value)
+                show_and_save(sensor_data, steer_value)
 
-            throttle = 1;
+                throttle = 1;
 
 
             if  (measurements.player_measurements.forward_speed >= 30):
@@ -367,7 +353,7 @@ def run_carla_client(host, port):
             client.send_control(
                 steer=steer_value,
                 throttle=throttle,
-                brake=False,
+                brake=brake,
                 hand_brake=False,
                 reverse=False)
 
