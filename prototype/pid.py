@@ -220,9 +220,28 @@ def process_image(src_sem, src_img):
 
     front = img_warped[h-300-10:h-300, int(left*1.1):int(right*0.9)]
     front_car = 10 in front
-    front_ped = 4 in front
 
-    if front_car or front_ped: 
+    red = False
+
+    red_threshold = 200
+    green_threshold = 50
+    blue_threshold = 50
+    rgb_threshold = [red_threshold, green_threshold, blue_threshold]
+
+    binary = (src_img[0:int(h/2), int(w/2):w])[src_sem[0:int(h/2),int(w/2):w] ==12]
+
+    thres_img = (binary[:, 0] < rgb_threshold[0]) & \
+                    (binary[:,1] < rgb_threshold[1]) & \
+                    (binary[:, 2] > rgb_threshold[2])
+
+    unique, counts = np.unique(thres_img, return_counts=True)
+    d = dict(zip(unique, counts))
+    if True in d:
+        print('red: ', d.get(True))
+        if d.get(True)>30:
+            return float('nan')
+
+    if front_car or red: 
         return float('nan')
     else:
         return position    
