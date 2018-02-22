@@ -228,17 +228,17 @@ def process_image(src_sem, src_img):
     blue_threshold = 50
     rgb_threshold = [red_threshold, green_threshold, blue_threshold]
 
-    binary = (src_img[0:int(h/2), int(w/2):w])[src_sem[0:int(h/2),int(w/2):w] ==12]
+    binary = (src_img[0:int(h*1), int(w/2):w])[src_sem[0:int(h*1),int(w/2):w] ==12]
 
-    thres_img = (binary[:, 0] < rgb_threshold[0]) & \
+    thres_img = (binary[:, 0] > rgb_threshold[0]) & \
                     (binary[:,1] < rgb_threshold[1]) & \
-                    (binary[:, 2] > rgb_threshold[2])
+                    (binary[:, 2] < rgb_threshold[2])
 
     unique, counts = np.unique(thres_img, return_counts=True)
     d = dict(zip(unique, counts))
     if True in d:
         print('red: ', d.get(True))
-        if d.get(True)>30:
+        if d.get(True)>10:
             return float('nan')
 
     if front_car or red: 
@@ -338,7 +338,7 @@ def run_carla_client(host, port):
             plt.ion()
             plt.show()
 
-        while (frame < 400):
+        while (frame < 1000):
             frame += 1
             print("---------------", frame)
             measurements, sensor_data = client.read_data()
