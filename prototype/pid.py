@@ -199,9 +199,6 @@ def define_position(warped):
         plt.imshow(img)
         plt.pause(0.001)
 
-    if save_to_disk:
-        cv2.imwrite(image_filename_format.format('Polly', frame), result)
-
     return int(left), int(right), position 
 
 def process_image(src_sem, src_img):
@@ -239,7 +236,7 @@ def process_image(src_sem, src_img):
     if True in d:
         print('red: ', d.get(True))
         if d.get(True)>10:
-            return float('nan')
+            red = True
 
     if front_car or red: 
         return float('nan')
@@ -308,7 +305,7 @@ def run_carla_client(host, port):
             SendNonPlayerAgentsInfo=True,
             NumberOfVehicles=100,
             NumberOfPedestrians=0,
-            WeatherId=1)  # random.choice([1, 3, 7, 8, 14]))
+            WeatherId= 14)  # random.choice([1, 3, 7, 8, 14]))
         settings.randomize_seeds()
 
         camera0 = Camera('CameraRGB')
@@ -329,7 +326,7 @@ def run_carla_client(host, port):
         scene = client.load_settings(settings)
 
         number_of_player_starts = len(scene.player_start_spots)
-        player_start = 1  # random.randint(0, max(0, number_of_player_starts - 1))
+        player_start =  random.randint(0, max(0, number_of_player_starts - 1))
 
         print('Starting...')
         client.start_episode(player_start)
