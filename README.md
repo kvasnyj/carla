@@ -1,5 +1,5 @@
 ## Features
-- Foloowing lanes by PID controller
+- Following lanes by PID controller
 - Stop behind cars
 - Stop on red light
 
