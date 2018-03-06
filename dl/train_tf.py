@@ -59,7 +59,7 @@ def conv_layer(input, size_in, size_out, name="conv"):
         b = tf.Variable(tf.constant(0.1, shape=[size_out]), name="B")
         conv = tf.nn.conv2d(input, w, strides=[1, 1, 1, 1], padding="SAME")
         act = tf.nn.relu(conv + b)
-        act = conv + b
+        act = tf.nn.relu(conv + b)
         tf.summary.histogram("weights", w)
         tf.summary.histogram("biases", b)
         tf.summary.histogram("activations", act)
@@ -70,7 +70,6 @@ def fc_layer(input, size_in, size_out, name="fc"):
         w = tf.Variable(tf.truncated_normal([size_in, size_out], stddev=0.1), name="W")
         b = tf.Variable(tf.constant(0.1, shape=[size_out]), name="B")
         act = tf.matmul(input, w) + b
-        act = tf.nn.relu(act)
         tf.summary.histogram("weights", w)
         tf.summary.histogram("biases", b)
         tf.summary.histogram("activations", act)
@@ -86,7 +85,8 @@ def get_model_lenet(x): #source of the model: http://images.nvidia.com/content/t
     fc1 = flatten(conv2)
 
     fc1 = fc_layer(fc1, fc1.get_shape().as_list()[-1], 120, "fc1")
-    #fc1 = tf.nn.dropout(fc1, 0.2)
+    fc1 = tf.nn.relu(fc1)
+    fc1 = tf.nn.dropout(fc1, 0.5)
     fc2 = fc_layer(fc1, 120, n_classes, "fc2")
     return fc2
 
