@@ -1,3 +1,4 @@
 {
-    "python.pythonPath": "/home/kvasnyj/anaconda3/envs/keras/bin/python"
+    "python.pythonPath": "/home/kvasnyj/anaconda3/envs/keras/bin/python",
+    "python.linting.enabled": false
 }
