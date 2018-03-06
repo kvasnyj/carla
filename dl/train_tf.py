@@ -9,7 +9,7 @@ import math
 n_classes = 2
 EPOCHS = 20
 BATCH_SIZE = 100
-rate = 0.0001
+rate = 0.001
 
 
 def image_pipeline(file):
@@ -53,24 +53,13 @@ def split2batches(batch_size, features, labels):
 
     return outout_batches
 
-def variable_summaries(var):
-  """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
-  with tf.name_scope('summaries'):
-    mean = tf.reduce_mean(var)
-    tf.summary.scalar('mean', mean)
-    with tf.name_scope('stddev'):
-      stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-    tf.summary.scalar('stddev', stddev)
-    tf.summary.scalar('max', tf.reduce_max(var))
-    tf.summary.scalar('min', tf.reduce_min(var))
-    tf.summary.histogram('histogram', var)
-
 def conv_layer(input, size_in, size_out, name="conv"):
     with tf.name_scope(name):
         w = tf.Variable(tf.truncated_normal([5, 5, size_in, size_out], stddev=0.1), name="W")
         b = tf.Variable(tf.constant(0.1, shape=[size_out]), name="B")
         conv = tf.nn.conv2d(input, w, strides=[1, 1, 1, 1], padding="SAME")
         act = tf.nn.relu(conv + b)
+        act = conv + b
         tf.summary.histogram("weights", w)
         tf.summary.histogram("biases", b)
         tf.summary.histogram("activations", act)
@@ -89,20 +78,21 @@ def fc_layer(input, size_in, size_out, name="fc"):
     
 def get_model_lenet(x): #source of the model: http://images.nvidia.com/content/tegra/automotive/images/2016/solutions/pdf/end-to-end-dl-using-px.pdf
     x = tf.reshape(x, (-1, 32, 32, 1))
-    conv1 = conv_layer(x, 1, 6, name = "conv1")
+
+    conv1 = conv_layer(x, 1, 6, "conv1")
 
     conv2 = conv_layer(conv1, 6,  16, "conv2")
 
     fc1 = flatten(conv2)
 
     fc1 = fc_layer(fc1, fc1.get_shape().as_list()[-1], 120, "fc1")
-    fc1 = tf.nn.dropout(fc1, 0.2)
+    #fc1 = tf.nn.dropout(fc1, 0.2)
     fc2 = fc_layer(fc1, 120, n_classes, "fc2")
     return fc2
 
 def eval_data(X_valid, y_valid):
     num_examples = len(X_valid)
-    summary, loss, acc = sess.run([merged, loss_op, accuracy_op], feed_dict={x: batch_x, y: batch_y})
+    summary, loss, acc = sess.run([merged, loss_op, accuracy_op], feed_dict={x: X_valid, y: y_valid})
 
     return summary, loss, acc
 
@@ -120,23 +110,18 @@ learning_rate = tf.placeholder(tf.float32, shape=[])
 
 model = get_model_lenet(x)
 
+xent = tf.nn.softmax_cross_entropy_with_logits(logits = model, labels = y)
+loss_op = tf.reduce_mean(xent)
+correct_prediction = tf.equal(tf.argmax(model, 1), tf.argmax(y, 1))
+accuracy_op = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+opt = tf.train.AdamOptimizer(learning_rate=learning_rate)
+train_op = opt.minimize(loss_op)
+
 with tf.name_scope('xent'):
-    with tf.name_scope('total'):
-        xent = tf.nn.softmax_cross_entropy_with_logits(logits = model, labels = y)
-        loss_op = tf.reduce_mean(xent)
-        tf.summary.scalar('xent', loss_op)
+    tf.summary.scalar('xent', loss_op)
 
 with tf.name_scope('accuracy'):
-    with tf.name_scope('correct_prediction'):
-        correct_prediction = tf.equal(tf.argmax(model, 1), tf.argmax(y, 1))
-    with tf.name_scope('accuracy'):
-        accuracy_op = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-        tf.summary.scalar('accuracy', accuracy_op)
-
-opt = tf.train.AdamOptimizer(learning_rate=learning_rate)
-with tf.name_scope('train'):
-    train_op = opt.minimize(loss_op)
-
+    tf.summary.scalar('accuracy', accuracy_op)
 
 init = tf.global_variables_initializer()
 sess = tf.Session()
@@ -145,7 +130,7 @@ sess.run(init)
 # Merge all the summaries and write them out to /tmp/mnist_logs (by default)
 merged = tf.summary.merge_all()
 train_writer = tf.summary.FileWriter('log/train', sess.graph)
-test_writer = tf.summary.FileWriter('log//test')
+test_writer = tf.summary.FileWriter('log/test')
 
 j=0
 for i in range(EPOCHS):
@@ -159,10 +144,10 @@ for i in range(EPOCHS):
         batch = batches[step]
         batch_x = batch[0]
         batch_y = array2classifier(n_classes, batch[1])
-        summary, _  = sess.run([merged, train_op], feed_dict={x: batch_x, y: batch_y, learning_rate: rate})
+        summary, loss  = sess.run([merged, train_op], feed_dict={x: batch_x, y: batch_y, learning_rate: rate})
         train_writer.add_summary(summary, j)
 
-    summary, val_loss, val_acc = eval_data(X_valid, y_valid)
+    summary, val_loss, val_acc = eval_data(X_valid, array2classifier(n_classes, y_valid))
     test_writer.add_summary(summary, j)
     print("EPOCH {} ...".format(i+1))
     print("Validation loss = {:.3f}".format(val_loss))
