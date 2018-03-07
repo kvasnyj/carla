@@ -159,6 +159,8 @@ with tf.name_scope('xent'):
 with tf.name_scope('accuracy'):
     tf.summary.scalar('accuracy', accuracy_op)
 
+saver = tf.train.Saver()
+
 init = tf.global_variables_initializer()
 sess = tf.Session()
 sess.run(init)
@@ -197,3 +199,5 @@ for i in range(EPOCHS):
 summary, test_loss, test_acc = eval_data(X_test, array2classifier(n_classes, y_test))
 print("Test loss = {:.3f}".format(test_loss))
 print("Test accuracy = {:.3f}".format(test_acc))
+
+saver.save(sess, './tf_model')
