@@ -11,6 +11,15 @@ EPOCHS = 20
 BATCH_SIZE = 100
 rate = 0.001
 
+from PIL import Image
+def image_pipeline_pil(file):
+    img = Image.open(file)#.convert('LA')
+    img.load()
+    #img = img.resize((32, 32), Image.ANTIALIAS)
+    data = np.asarray(img, dtype="int32")
+    data = np.dot(data[...,:3], [0.299, 0.587, 0.114])
+    data = data[:,:, np.newaxis]
+    return data
 
 def image_pipeline(file):
     img = cv2.imread(file)
@@ -31,11 +40,11 @@ def get_data():
     y = []
 
     for file in glob.glob('data/vehicles/**/*.png', recursive=True):
-        X.append(image_pipeline(file))
+        X.append(image_pipeline_pil(file))
         y.append(1)
 
     for file in glob.glob('data/non-vehicles/**/*.png', recursive=True):
-        X.append(image_pipeline(file))
+        X.append(image_pipeline_pil(file))
         y.append(0)
 
     return train_test_split(np.array(X), np.array(y), test_size=0.2)
@@ -74,9 +83,9 @@ def fc_layer(input, size_in, size_out, name="fc"):
         tf.summary.histogram("biases", b)
         tf.summary.histogram("activations", act)
     return act
-    
-def get_model_lenet(x): #source of the model: http://images.nvidia.com/content/tegra/automotive/images/2016/solutions/pdf/end-to-end-dl-using-px.pdf
-    x = tf.reshape(x, (-1, 32, 32, 1))
+
+def get_model_lenet(x):
+    x = tf.reshape(x, (-1, 64, 64, 1))
 
     conv1 = conv_layer(x, 1, 6, "conv1")
 
