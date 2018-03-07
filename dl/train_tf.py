@@ -99,6 +99,33 @@ def get_model_lenet(x):
     fc2 = fc_layer(fc1, 120, n_classes, "fc2")
     return fc2
 
+def get_model_lenet_layer(x):
+    x = tf.reshape(x, (-1, 64, 64, 1))
+
+    conv1 = tf.layers.conv2d(
+      inputs=x,
+      filters=6,
+      kernel_size=[5, 5],
+      padding="same",
+      activation=tf.nn.relu)
+
+    pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
+
+    conv2 = tf.layers.conv2d(
+      inputs=pool1,
+      filters=16,
+      kernel_size=[5, 5],
+      padding="same",
+      activation=tf.nn.relu)
+
+    pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
+
+    fc0 = flatten(pool2)
+    fc1 = tf.layers.dense(inputs=fc0, units=120, activation=tf.nn.relu)
+    fc1d = tf.layers.dropout(inputs=fc1, rate=0.4)
+    fc2 = tf.layers.dense(inputs=fc1d, units=n_classes)
+    return fc2
+
 def eval_data(X_valid, y_valid):
     num_examples = len(X_valid)
     summary, loss, acc = sess.run([merged, loss_op, accuracy_op], feed_dict={x: X_valid, y: y_valid})
@@ -117,7 +144,7 @@ x = tf.placeholder(tf.float32, (None, image_shape[0], image_shape[1], 1))
 y = tf.placeholder(tf.float32, (None, n_classes))
 learning_rate = tf.placeholder(tf.float32, shape=[])
 
-model = get_model_lenet(x)
+model = get_model_lenet_layer(x)
 
 xent = tf.nn.softmax_cross_entropy_with_logits(logits = model, labels = y)
 loss_op = tf.reduce_mean(xent)
@@ -136,7 +163,6 @@ init = tf.global_variables_initializer()
 sess = tf.Session()
 sess.run(init)
 
-# Merge all the summaries and write them out to /tmp/mnist_logs (by default)
 merged = tf.summary.merge_all()
 train_writer = tf.summary.FileWriter('log/train', sess.graph)
 test_writer = tf.summary.FileWriter('log/test')
