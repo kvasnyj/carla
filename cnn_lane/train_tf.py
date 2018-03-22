@@ -15,9 +15,17 @@ rate = 0.0001
 def image_pipeline(file):
     img = Image.open(file)#.convert('LA')
     img.load()
-    img = img.resize((64, 64), Image.ANTIALIAS)
+    #img = img.resize((64, 64), Image.ANTIALIAS)
+
     data = np.asarray(img, dtype="int32")
     data = np.dot(data[...,:3], [0.299, 0.587, 0.114]) # to gray
+
+    # TODO TAKE ONLY BOTTOM PART
+    # TODO No resize
+    # TODO use NVidia instead or lenet
+    h, w = data.shape
+    data = data[h/2:h, :]
+
     data = data[:,:, np.newaxis]
     return data
 
@@ -79,7 +87,8 @@ def get_model_lenet_layer(x):
       inputs=x,
       filters=6,
       kernel_size=[5, 5],
-      padding="same")
+      padding="same",
+      activation=tf.nn.relu)
 
     pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
 
@@ -87,7 +96,8 @@ def get_model_lenet_layer(x):
       inputs=pool1,
       filters=16,
       kernel_size=[5, 5],
-      padding="same")
+      padding="same",
+      activation=tf.nn.relu)
 
     pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
 
