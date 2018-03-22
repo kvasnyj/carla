@@ -3,7 +3,7 @@ from tensorflow.contrib.layers import flatten
 import numpy as np
 import glob
 from sklearn.model_selection import train_test_split
-import cv2
+#import cv2
 import math
 
 n_classes = 2

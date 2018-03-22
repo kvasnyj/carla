@@ -8,6 +8,8 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+cnn_lane/data/*.png
+log/
 env/
 build/
 develop-eggs/
