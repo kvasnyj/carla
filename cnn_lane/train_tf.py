@@ -20,9 +20,6 @@ def image_pipeline(file):
     data = np.asarray(img, dtype="int32")
     data = np.dot(data[...,:3], [0.299, 0.587, 0.114]) # to gray
 
-    # TODO TAKE ONLY BOTTOM PART
-    # TODO No resize
-    # TODO use NVidia instead or lenet
     h, w = data.shape
     data = data[h/2:h, :]
 
@@ -36,28 +33,28 @@ def get_data():
     txt = np.loadtxt("/home/kvasnyj/Dropbox/carla/cnn_lane/data/data.txt", delimiter=";")
     #txt = txt[txt[:, 6]<800]
 
-    l0min =  np.min(np.abs(txt[:, 1]))  
-    l1min =  np.min(np.abs(txt[:, 2])) 
-    l2min =  np.min(np.abs(txt[:, 3])) 
-    l0max =  np.max(np.abs(txt[:, 1]))  
-    l1max =  np.max(np.abs(txt[:, 2]))  
-    l2max =  np.max(np.abs(txt[:, 3]))   
-    l0range = l0max - l0min   
-    l1range = l1max - l1min   
-    l2range = l2max - l2min   
+    l0min =  np.min(np.abs(txt[:, 1]))
+    l1min =  np.min(np.abs(txt[:, 2]))
+    l2min =  np.min(np.abs(txt[:, 3]))
+    l0max =  np.max(np.abs(txt[:, 1]))
+    l1max =  np.max(np.abs(txt[:, 2]))
+    l2max =  np.max(np.abs(txt[:, 3]))
+    l0range = l0max - l0min
+    l1range = l1max - l1min
+    l2range = l2max - l2min
 
-    r0min =  np.min(np.abs(txt[:, 4]))  
-    r1min =  np.min(np.abs(txt[:, 5]))  
-    r2min =  np.min(np.abs(txt[:, 6]))  
-    r0max =  np.max(np.abs(txt[:, 4]))  
-    r1max =  np.max(np.abs(txt[:, 5]))  
-    r2max =  np.max(np.abs(txt[:, 6]))   
-    r0range = r0max - r0min   
-    r1range = r1max - r1min   
-    r2range = r2max - r2min    
+    r0min =  np.min(np.abs(txt[:, 4]))
+    r1min =  np.min(np.abs(txt[:, 5]))
+    r2min =  np.min(np.abs(txt[:, 6]))
+    r0max =  np.max(np.abs(txt[:, 4]))
+    r1max =  np.max(np.abs(txt[:, 5]))
+    r2max =  np.max(np.abs(txt[:, 6]))
+    r0range = r0max - r0min
+    r1range = r1max - r1min
+    r2range = r2max - r2min
 
-    range = [l0range, l1range, l2range, r0range, r1range, r2range]  
-    min = [l0min, l1min, l2min, r0min, r1min, r2min]  
+    range = [l0range, l1range, l2range, r0range, r1range, r2range]
+    min = [l0min, l1min, l2min, r0min, r1min, r2min]
 
     for t in txt:
         file = "/home/kvasnyj/Dropbox/carla/cnn_lane/data/image_{:0>5d}.png".format(int(t[0]))
@@ -79,33 +76,32 @@ def split2batches(batch_size, features, labels):
 
     return outout_batches
 
+def get_model_nvidia(x): #source of the model: http://images.nvidia.com/content/tegra/automotive/images/2016/solutions/pdf/end-to-end-dl-using-px.pdf
+    conv1 = tf.layers.conv2d(inputs=x, filters=3, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
+    conv2 = tf.layers.conv2d(inputs=conv1, filters=24, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
+    conv3 = tf.layers.conv2d(inputs=conv2, filters=36, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
+    conv4 = tf.layers.conv2d(inputs=conv3, filters=48, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
+    conv5 = tf.layers.conv2d(inputs=conv4, filters=64, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
+    conv6 = tf.layers.conv2d(inputs=conv5, filters=64, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
 
-def get_model_lenet_layer(x):
-    x = tf.reshape(x, (-1, 64, 64, 1))
+    fc0 = flatten(conv6)
+    fc0d = tf.layers.dropout(inputs=fc0, rate=0.2)
 
-    conv1 = tf.layers.conv2d(
-      inputs=x,
-      filters=6,
-      kernel_size=[5, 5],
-      padding="same",
-      activation=tf.nn.relu)
+    fc1 = tf.layers.dense(inputs=fc0d, units=1164, activation=tf.nn.elu)
+    fc1d = tf.layers.dropout(inputs=fc1, rate=0.2)
 
-    pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
+    fc2 = tf.layers.dense(inputs=fc1d, units=100, activation=tf.nn.elu)
+    fc2d = tf.layers.dropout(inputs=fc2, rate=0.2)
 
-    conv2 = tf.layers.conv2d(
-      inputs=pool1,
-      filters=16,
-      kernel_size=[5, 5],
-      padding="same",
-      activation=tf.nn.relu)
+    fc3 = tf.layers.dense(inputs=fc2d, units=50, activation=tf.nn.elu)
+    fc4d = tf.layers.dropout(inputs=fc3, rate=0.5)
 
-    pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
+    fc4 = tf.layers.dense(inputs=fc3d, units=10, activation=tf.nn.elu)
+    fc4d = tf.layers.dropout(inputs=fc4, rate=0.5)
 
-    fc0 = flatten(pool2)
-    fc1 = tf.layers.dense(inputs=fc0, units=120)
-    fc1d = tf.layers.dropout(inputs=fc1, rate=0.4)
-    fc2 = tf.layers.dense(inputs=fc1d, units=6)
-    return fc2
+    fc5 = tf.layers.dense(inputs=fc4d, units=6)
+
+  return fc5
 
 def eval_data(X_valid, y_valid):
     num_examples = len(X_valid)
@@ -125,7 +121,7 @@ x = tf.placeholder(tf.float32, (None, image_shape[0], image_shape[1], 1))
 y = tf.placeholder(tf.float32, (None, 6))
 learning_rate = tf.placeholder(tf.float32, shape=[])
 
-model = get_model_lenet_layer(x)
+model = get_model_nvidia(x)
 
 mse = tf.losses.mean_squared_error(predictions = model, labels = y)
 loss_op = tf.reduce_mean(mse)
