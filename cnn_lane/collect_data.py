@@ -214,47 +214,16 @@ def process_image(src_sem, src_img):
     img = np.copy(src_sem)
     img_warped = warper(img)
     img_bin = sem2bin(img_warped)
-    if save_to_disk:
-        cv2.imwrite(image_filename_format.format('Bin', frame), img_bin)
 
     if frame>=10:
-        leftx, lefty, rightx, righty = peaks_histogram(img)
+        leftx, lefty, rightx, righty = peaks_histogram(img_bin)
         left_fit, right_fit = curvature(leftx, lefty, rightx, righty)  
         if left_fit[2]>0 and right_fit[2]>0:   
-            cv2.imwrite("/home/kvasnyj/Dropbox/carla/cnn_lane/data/image_{:0>5d}.png".format(frame), src_img)
+            cv2.imwrite("/home/kvasnyj/Dropbox/carla/cnn_lane/data/image_{:0>5d}.png".format(frame), warper(src_img))
             with open("/home/kvasnyj/Dropbox/carla/cnn_lane/data/data.txt", "a") as text:
                 text.write("%i;%f;%f;%f;%f;%f;%f\r\n" % (frame,left_fit[0],left_fit[1],left_fit[2],right_fit[0],right_fit[1],right_fit[2]))        
 
-
-    left, right, position  = define_position(img_bin)
-
-    front = img_warped[h-300-10:h-300, int(left*1.1):int(right*0.9)]
-    front_car = 10 in front
-
-    red = False
-
-    red_threshold = 200
-    green_threshold = 50
-    blue_threshold = 50
-    rgb_threshold = [red_threshold, green_threshold, blue_threshold]
-
-    binary = (src_img[0:int(h*1), int(w/2):w])[src_sem[0:int(h*1),int(w/2):w] ==12]
-
-    thres_img = (binary[:, 0] > rgb_threshold[0]) & \
-                    (binary[:,1] < rgb_threshold[1]) & \
-                    (binary[:, 2] < rgb_threshold[2])
-
-    unique, counts = np.unique(thres_img, return_counts=True)
-    d = dict(zip(unique, counts))
-    if True in d:
-        print('red: ', d.get(True))
-        if d.get(True)>10:
-            red = True
-
-    if front_car or red: 
-        return float('nan')
-    else:
-        return position    
+    return 0
 
 def show_and_save(sensor_data, steering):
     global video
