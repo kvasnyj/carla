@@ -17,8 +17,9 @@ def image_pipeline(file):
     img.load()
     #img = img.resize((64, 64), Image.ANTIALIAS)
 
-    data = np.asarray(img, dtype="int32")
+    data = np.asarray(img, dtype="float")
     data = np.dot(data[...,:3], [0.299, 0.587, 0.114]) # to gray
+    data = data / 255 # normalization
 
     h, w = data.shape
     data = data[h/2:h, :]
@@ -33,6 +34,7 @@ def get_data():
     txt = np.loadtxt("/home/kvasnyj/Dropbox/carla/cnn_lane/data/data.txt", delimiter=";")
     #txt = txt[txt[:, 6]<800]
 
+    # normalization
     l0min =  np.min(np.abs(txt[:, 1]))
     l1min =  np.min(np.abs(txt[:, 2]))
     l2min =  np.min(np.abs(txt[:, 3]))
@@ -59,7 +61,7 @@ def get_data():
     for t in txt:
         file = "/home/kvasnyj/Dropbox/carla/cnn_lane/data/image_{:0>5d}.png".format(int(t[0]))
         X.append(image_pipeline(file))
-        y.append((t[1:]-min)/range)
+        y.append((t[1:] - min) / range)
 
     return train_test_split(np.array(X), np.array(y), test_size=0.2)
 
@@ -168,8 +170,6 @@ for i in range(EPOCHS):
     print("Validation accuracy = {:.3f}".format(val_acc))
 
     print("rate", rate)
-    #rate = max(rate*0.5, 0.00001)
-
     print()
 
 # Evaluate on the test data
