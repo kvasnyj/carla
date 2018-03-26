@@ -106,18 +106,20 @@ def fillPoly(undist, warped, polyfit):
     # Recast the x and y points into usable format for cv2.fillPoly()
     pts_left = np.array([np.transpose(np.vstack([left_fitx, yvals]))])
     pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, yvals])))])
-    pts = np.hstack((pts_left, pts_right))
+    #pts = np.hstack((pts_left, pts_right))
 
     # Draw the lane onto the warped blank image
-    try:
-        cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
-        # Warp the blank back to original image space using inverse perspective matrix (Minv)
-        Minv = cv2.getPerspectiveTransform(warp_dst, warp_src)
-        newwarp = cv2.warpPerspective(color_warp, Minv, (undist.shape[1], undist.shape[0]))
-        # Combine the result with the original image
-        return cv2.addWeighted(undist, 1, newwarp, 0.3, 0)        
-    except Exception as exception:
-        return undist       
+    #cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
+
+    cv2.polylines(color_warp, pts_left, 5, (0, 255, 0))
+    cv2.polylines(color_warp, pts_right, 5, (255, 0, 255))
+
+    # Warp the blank back to original image space using inverse perspective matrix (Minv)
+    Minv = cv2.getPerspectiveTransform(warp_dst, warp_src)
+    newwarp = cv2.warpPerspective(color_warp, Minv, (undist.shape[1], undist.shape[0]))
+    # Combine the result with the original image
+    return cv2.addWeighted(undist, 1, newwarp, 0.3, 0)        
+   
 
 def cnn_lanes(img):
     warped = warper(img)
