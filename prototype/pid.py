@@ -1,5 +1,8 @@
-# ~/carla/CarlaUE4.sh /Game/Maps/Town01 -carla-server -fps=15 -windowed -ResX=800 -ResY=600 
+# ~/repo/carla/CarlaUE4.sh /Game/Maps/Town01 -carla-server -fps=15 -windowed -ResX=800 -ResY=600 
 from __future__ import print_function
+
+import tensorflow as tf
+from tensorflow.contrib.layers import flatten
 
 import argparse
 import logging
@@ -20,7 +23,7 @@ from carla.util import print_over_same_line
 from Line import Line
 
 image_filename_format = '/home/kvasnyj/temp/images/{:s}/image_{:0>5d}.png'
-show_camera = False
+show_camera = True
 save_to_disk = False
 
 Kp = 0.008
@@ -37,24 +40,21 @@ warp_src, warp_dst = [], []
 
 video = None
 
-def UpdateError(cte):
-    global prev_cte, int_cte, err
-    diff_cte = cte - prev_cte
-    prev_cte = cte
-    int_cte += cte
-    err += (1 + abs(cte)) * (1 + abs(cte))
-
-    steer = -Kp * cte - Kd * diff_cte - Ki * int_cte
-    if steer > 0.3: steer = 0.3
-    if steer < -0.3: steer = -0.3
-
-    print(cte, diff_cte, int_cte)
-
-    return steer
+poly_min = [0.0, 0.0, 197.94484600000001, 0.0, 0.0, 55.296128000000003]
+poly_range = [0.001227, 1.1010660000000001, 411.36781700000006, 0.0082349999999999993, 8.6811699999999998, 2673.026965]
 
 
-def TotalError():
-    return err / frame
+def image_pipeline(img):
+    img = cv2.resize(img, (64, 64))
+    data = np.asarray(img, dtype="float")
+    data = np.dot(data[...,:3], [0.299, 0.587, 0.114]) # to gray
+
+    h, w = data.shape
+    data = data[int(h/2):h, :]
+    data = data / 255 # normalization
+
+    data = data[np.newaxis, :,:, np.newaxis]
+    return data
 
 def define_warper():
     basex = 520
@@ -93,90 +93,49 @@ def sem2bin(img):
 
     return bin
 
-def peaks_histogram(img, debug = False):
-    left_fitx, right_fitx, left_fity, right_fity = [], [], [], []
-    past_left, past_right = 0, w / 2
-
-    topx = 390
-    offset = 360
-
-    for i in range(0, topx):
-        histogram = np.sum(img[topx-i:h-i, :], axis=0)
-
-        x_left = np.argmax(histogram[offset: int(w / 2)])+offset
-        if (past_left == 0) | (abs(x_left-past_left)<150) & (histogram[x_left]>=5):
-            left_fitx.append(x_left)
-            left_fity.append(h-i)
-            past_left = x_left
-
-        x_right = int(w / 2 + np.argmax(histogram[int(w / 2):w]))
-        if (past_right == w / 2) | (abs(x_right-past_right)<150) & (histogram[x_right]>=5):
-            right_fitx.append(x_right)
-            right_fity.append(h-i)
-            past_right = x_right
-
-        if debug:
-            print(left_fitx)
-            print(right_fitx)
-            plt.plot(histogram)
-            plt.show()
-
-    return left_fitx, left_fity, right_fitx, right_fity
-
-def curvature(leftx, lefty, rightx, righty, debug = False):
-    leftx = np.float32(leftx)
-    rightx = np.float32(rightx)
-    lefty = np.float32(lefty)
-    righty = np.float32(righty)
-
-    yvals = np.arange(h - h / 2, h, 1.0)
-    left_curverad, right_curverad = 0, 0
-
-    left_fit, right_fit = None, None
-    if len(lefty)>5: 
-        y_eval = np.max(lefty)
-        left_fit = np.polyfit(lefty, leftx, 2)
-        left_curverad = ((1 + (2*left_fit[0]*y_eval + left_fit[1])**2)**1.5) \
-                                 /np.absolute(2*left_fit[0])
-        left_fit_cr = np.polyfit(lefty , leftx , 2)
-        left_curverad = ((1 + (2 * left_fit_cr[0] * y_eval + left_fit_cr[1]) ** 2) ** 1.5) \
-                    / np.absolute(2 * left_fit_cr[0])
+def fillPoly(undist, warped, polyfit):
+    yvals = np.arange(h / 2, h, 1.0)
     
-    left_fitx = sanity_check(left_lane, left_fit, yvals,  left_curverad)
+    left_fitx = polyfit[0] * yvals ** 2 + polyfit[1] * yvals + polyfit[2]
+    right_fitx = polyfit[3] * yvals ** 2 + polyfit[4] * yvals + polyfit[5]
 
-        
-    if len(righty)>5: 
-        y_eval = np.max(righty)
-        right_fit = np.polyfit(righty, rightx, 2)
-        right_curverad = ((1 + (2*right_fit[0]*y_eval + right_fit[1])**2)**1.5) \
-                                    /np.absolute(2*right_fit[0])
-        right_fit_cr = np.polyfit(righty , rightx , 2)
-        right_curverad = ((1 + (2 * right_fit_cr[0] * y_eval + right_fit_cr[1]) ** 2) ** 1.5) \
-                     / np.absolute(2 * right_fit_cr[0])
+    # Create an image to draw the lines on
+    warp_zero = np.zeros_like(warped).astype(np.uint8)
+    color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
+
+    # Recast the x and y points into usable format for cv2.fillPoly()
+    pts_left = np.array([np.transpose(np.vstack([left_fitx, yvals]))])
+    pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, yvals])))])
+    pts = np.hstack((pts_left, pts_right))
+
+    # Draw the lane onto the warped blank image
+    try:
+        cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
+        # Warp the blank back to original image space using inverse perspective matrix (Minv)
+        Minv = cv2.getPerspectiveTransform(warp_dst, warp_src)
+        newwarp = cv2.warpPerspective(color_warp, Minv, (undist.shape[1], undist.shape[0]))
+        # Combine the result with the original image
+        return cv2.addWeighted(undist, 1, newwarp, 0.3, 0)        
+    except Exception as exception:
+        return undist       
+
+def cnn_lanes(img):
+    warped = warper(img)
+    x = image_pipeline(warped)
+
+    feed_dict = {X:x}
+
+    poly = sess.run(model,feed_dict)
+    poly = poly.reshape(6)
     
-    right_fitx = sanity_check(right_lane, right_fit, yvals, right_curverad)
+    polyfit = poly * poly_range + poly_min
 
-    return left_fitx, right_fitx, yvals
+    img = fillPoly(img, warped, polyfit)
 
-def sanity_check(lane, polyfit, yvals, curvature):
-    if  len(lane.polyfit) <= 5:
-        lane.radius_of_curvature = curvature
-        lane.polyfit = polyfit
-        lane.count_skip = 0
-    else:
-        a = np.column_stack((lane.polyfit[0] * yvals ** 2 + lane.polyfit[1] * yvals + lane.polyfit[2], yvals))
-        b = np.column_stack((polyfit[0] * yvals ** 2 + polyfit[1] * yvals + polyfit[2], yvals))
-        ret = cv2.matchShapes(a, b, 1, 0.0)
-
-        if True | (ret < 0.005) | (lane.count_skip > 10):
-            lane.radius_of_curvature = curvature
-            lane.polyfit = polyfit
-            lane.count_skip = 0
-        else:
-            lane.count_skip += 1
-
-    return lane.polyfit[0] * yvals ** 2 + lane.polyfit[1] * yvals + lane.polyfit[2]
-
+    if show_camera:
+        cv2.imwrite(image_filename_format.format('cnn', frame), img)
+        #plt.imshow(img)
+        #plt.pause(0.001)
 
 def define_position(warped):
     pts = np.argwhere(warped[:, :])
@@ -190,14 +149,9 @@ def define_position(warped):
     #center = (left + right)/2
     #position = position - center
 
-
     position = -(right-w/2-40)-10
 
     print(left, right, position)
-
-    if show_camera:
-        plt.imshow(img)
-        plt.pause(0.001)
 
     return int(left), int(right), position 
 
@@ -214,6 +168,8 @@ def process_image(src_sem, src_img):
         cv2.imwrite(image_filename_format.format('Bin', frame), img_bin)
 
     left, right, position  = define_position(img_bin)
+
+    cnn_lanes(src_img)
 
     front = img_warped[h-300-10:h-300, int(left*1.1):int(right*0.9)]
     front_car = 10 in front
@@ -248,52 +204,27 @@ def show_and_save(sensor_data, steering):
     if frame<28: return
 
     if save_to_disk:
-        img_sem = sensor_data.get('CameraSemanticSegmentation').data
-        img = np.copy(sensor_data.get('CameraRGB').data)
-        img_depth = np.copy(sensor_data.get('CameraDepth').data)
-        img_depth = img_depth*255
-
-        for i in range(h):
-            for j in range(w):
-                sem = img_sem[i][j]
-                if sem == 0:
-                    img[i][j] = [0, 0, 0]
-                elif sem == 1:
-                    img[i][j] = [255, 0, 0]
-                elif sem == 2:
-                    img[i][j] = [0, 255, 0]
-                elif sem == 3:
-                    img[i][j] = [0, 0, 128]
-                elif sem == 4:
-                    img[i][j] = [0, 0, 255]
-                elif sem == 5:
-                    img[i][j] = [255, 255, 0]
-                elif sem == 6:
-                    img[i][j] = [0, 255, 255]
-                elif sem == 7:
-                    img[i][j] = [255, 0, 255]
-                elif sem == 8:
-                    img[i][j] = [128, 0, 0]
-                elif sem == 9:
-                    img[i][j] = [128, 128, 0]
-                elif sem == 10:
-                    img[i][j] = [0, 128, 0]
-                elif sem == 11:
-                    img[i][j] = [128, 0, 128]
-                elif sem == 12:
-                    img[i][j] = [0, 128, 128]
-                else:
-                    img[i][j] = [255, 255, 255]
-
-        cv2.imwrite(image_filename_format.format('plot', frame), img)
-
-    if save_to_disk:
-        #sensor_data.get('CameraRGB').save_to_disk(image_filename_format.format('CameraRGB', frame))
+    #sensor_data.get('CameraRGB').save_to_disk(image_filename_format.format('CameraRGB', frame))
         if video == None: 
             video = cv2.VideoWriter('/home/kvasnyj/temp/carla.avi', cv2.VideoWriter_fourcc(*"MJPG"), 10, (w,h))
         img = np.copy(sensor_data.get('CameraRGB').data)
         cv2.putText(img, "Steering = {:10.4f}".format(steering), (400, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
         video.write(img)
+
+def UpdateError(cte):
+    global prev_cte, int_cte, err
+    diff_cte = cte - prev_cte
+    prev_cte = cte
+    int_cte += cte
+    err += (1 + abs(cte)) * (1 + abs(cte))
+
+    steer = -Kp * cte - Kd * diff_cte - Ki * int_cte
+    if steer > 0.3: steer = 0.3
+    if steer < -0.3: steer = -0.3
+
+    print(cte, diff_cte, int_cte)
+
+    return steer
 
 def run_carla_client(host, port):
     global frame
@@ -305,7 +236,7 @@ def run_carla_client(host, port):
             SendNonPlayerAgentsInfo=True,
             NumberOfVehicles=100,
             NumberOfPedestrians=0,
-            WeatherId= 14)  # random.choice([1, 3, 7, 8, 14]))
+            WeatherId= 1)  # random.choice([1, 3, 7, 8, 14]))
         settings.randomize_seeds()
 
         camera0 = Camera('CameraRGB')
@@ -331,10 +262,6 @@ def run_carla_client(host, port):
         print('Starting...')
         client.start_episode(player_start)
 
-        if show_camera:
-            plt.ion()
-            plt.show()
-
         while (frame < 1000):
             frame += 1
             print("---------------", frame)
@@ -344,7 +271,6 @@ def run_carla_client(host, port):
             #measurements.non_player_agents[0]
 
             sem = sensor_data.get('CameraSemanticSegmentation').data
-            #depth = sensor_data.get('CameraDepth').data
             img = sensor_data.get('CameraRGB').data
             position = process_image(sem, img)
 
@@ -416,7 +342,16 @@ def main():
             logging.exception(exception)
             sys.exit(1)
 
+
 if __name__ == '__main__':
+    sess = tf.Session()
+    saver = tf.train.import_meta_graph('./tf_model.meta')
+    saver.restore(sess, tf.train.latest_checkpoint('./'))
+
+    graph = tf.get_default_graph()
+    X = graph.get_tensor_by_name("X:0")
+
+    model = graph.get_tensor_by_name("output/BiasAdd:0") # graph.as_graph_def().node
 
     try:
         left_lane = Line()

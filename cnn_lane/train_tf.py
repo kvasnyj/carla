@@ -15,14 +15,14 @@ rate = 0.0001
 def image_pipeline(file):
     img = Image.open(file)#.convert('LA')
     img.load()
-    #img = img.resize((64, 64), Image.ANTIALIAS)
+    img = img.resize((64, 64), Image.ANTIALIAS)
 
     data = np.asarray(img, dtype="float")
     data = np.dot(data[...,:3], [0.299, 0.587, 0.114]) # to gray
-    data = data / 255 # normalization
 
     h, w = data.shape
-    data = data[h/2:h, :]
+    data = data[int(h/2):h, :]
+    data = data / 255 # normalization
 
     data = data[:,:, np.newaxis]
     return data
@@ -32,7 +32,7 @@ def get_data():
     y = []
 
     txt = np.loadtxt("/home/kvasnyj/Dropbox/carla/cnn_lane/data/data.txt", delimiter=";")
-    #txt = txt[txt[:, 6]<800]
+    #txt = txt[txt[:, 0]<1000]
 
     # normalization
     l0min =  np.min(np.abs(txt[:, 1]))
@@ -63,6 +63,7 @@ def get_data():
         X.append(image_pipeline(file))
         y.append((t[1:] - min) / range)
 
+    print ("data loaded")
     return train_test_split(np.array(X), np.array(y), test_size=0.2)
 
 def split2batches(batch_size, features, labels):
@@ -80,13 +81,24 @@ def split2batches(batch_size, features, labels):
 
 def get_model_nvidia(x): #source of the model: http://images.nvidia.com/content/tegra/automotive/images/2016/solutions/pdf/end-to-end-dl-using-px.pdf
     conv1 = tf.layers.conv2d(inputs=x, filters=3, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
-    conv2 = tf.layers.conv2d(inputs=conv1, filters=24, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
-    conv3 = tf.layers.conv2d(inputs=conv2, filters=36, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
-    conv4 = tf.layers.conv2d(inputs=conv3, filters=48, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
-    conv5 = tf.layers.conv2d(inputs=conv4, filters=64, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
-    conv6 = tf.layers.conv2d(inputs=conv5, filters=64, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
+    pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
 
-    fc0 = flatten(conv6)
+    conv2 = tf.layers.conv2d(inputs=pool1, filters=24, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
+    pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
+
+    conv3 = tf.layers.conv2d(inputs=pool2, filters=36, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
+    pool3 = tf.layers.max_pooling2d(inputs=conv3, pool_size=[2, 2], strides=2)
+
+    conv4 = tf.layers.conv2d(inputs=pool3, filters=48, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
+    pool4 = tf.layers.max_pooling2d(inputs=conv4, pool_size=[2, 2], strides=2)
+
+    conv5 = tf.layers.conv2d(inputs=pool4, filters=64, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
+    pool5 = tf.layers.max_pooling2d(inputs=conv5, pool_size=[2, 2], strides=2)
+
+    conv6 = tf.layers.conv2d(inputs=conv5, filters=64, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
+    pool6 = tf.layers.max_pooling2d(inputs=conv6, pool_size=[2, 2], strides=2)
+
+    fc0 = flatten(pool6)
     fc0d = tf.layers.dropout(inputs=fc0, rate=0.2)
 
     fc1 = tf.layers.dense(inputs=fc0d, units=1164, activation=tf.nn.elu)
@@ -96,14 +108,14 @@ def get_model_nvidia(x): #source of the model: http://images.nvidia.com/content/
     fc2d = tf.layers.dropout(inputs=fc2, rate=0.2)
 
     fc3 = tf.layers.dense(inputs=fc2d, units=50, activation=tf.nn.elu)
-    fc4d = tf.layers.dropout(inputs=fc3, rate=0.5)
+    fc3d = tf.layers.dropout(inputs=fc3, rate=0.5)
 
     fc4 = tf.layers.dense(inputs=fc3d, units=10, activation=tf.nn.elu)
     fc4d = tf.layers.dropout(inputs=fc4, rate=0.5)
 
-    fc5 = tf.layers.dense(inputs=fc4d, units=6)
+    fc5 = tf.layers.dense(inputs=fc4d, units=6, name = "output")
 
-  return fc5
+    return fc5
 
 def eval_data(X_valid, y_valid):
     num_examples = len(X_valid)
@@ -119,7 +131,7 @@ n = n_train + n_test
 print("size: %s, train: %s, test: %s" % (n, n_train, n_test))
 
 image_shape = X_train[0].shape
-x = tf.placeholder(tf.float32, (None, image_shape[0], image_shape[1], 1))
+x = tf.placeholder(tf.float32, (None, image_shape[0], image_shape[1], 1), name="X")
 y = tf.placeholder(tf.float32, (None, 6))
 learning_rate = tf.placeholder(tf.float32, shape=[])
 
