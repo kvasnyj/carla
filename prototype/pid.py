@@ -111,8 +111,8 @@ def fillPoly(undist, warped, polyfit):
     # Draw the lane onto the warped blank image
     #cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
 
-    cv2.polylines(color_warp, pts_left, 5, (0, 255, 0))
-    cv2.polylines(color_warp, pts_right, 5, (255, 0, 255))
+    cv2.polylines(color_warp, np.int_([pts_left]), 5, (0, 255, 0)) 
+    cv2.polylines(color_warp, np.int_([pts_right]), 5, (255, 0, 0)) 
 
     # Warp the blank back to original image space using inverse perspective matrix (Minv)
     Minv = cv2.getPerspectiveTransform(warp_dst, warp_src)
@@ -127,7 +127,7 @@ def cnn_lanes(img):
 
     feed_dict = {X:x}
 
-    poly = sess.run(model,feed_dict)
+    poly = sess.run(model, feed_dict)
     poly = poly.reshape(6)
     
     polyfit = poly * poly_range + poly_min
