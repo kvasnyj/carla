@@ -151,6 +151,10 @@ def define_position(warped):
 
     position = -(right-w/2-40)-10
 
+    if np.isnan(left): left = 0
+    if np.isnan(right): right = 0
+    if np.isnan(position): position = 0    
+
     print(left, right, position)
 
     return int(left), int(right), position 
