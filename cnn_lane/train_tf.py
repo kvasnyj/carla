@@ -4,25 +4,22 @@ from tensorflow.contrib.layers import flatten
 import numpy as np
 import glob
 from sklearn.model_selection import train_test_split
-#import cv2
+import cv2
 import math
-from PIL import Image
+#from PIL import Image
 
 EPOCHS = 20
 BATCH_SIZE = 10
 rate = 0.0001
 
 def image_pipeline(file):
-    img = Image.open(file)#.convert('LA')
-    img.load()
-    img = img.resize((64, 64), Image.ANTIALIAS)
+    img = cv2.imread(file)
+    img = img[:390, 360:, :]
+    img = cv2.resize(img, (64, 64))
+    img = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
 
     data = np.asarray(img, dtype="float")
-    data = np.dot(data[...,:3], [0.299, 0.587, 0.114]) # to gray
-
-    h, w = data.shape
-    data = data[int(h/2):h, :]
-    data = data / 255 # normalization
+    data = data / 255. # normalization
 
     data = data[:,:, np.newaxis]
     return data

@@ -45,15 +45,14 @@ poly_range = [0.001227, 1.1010660000000001, 411.36781700000006, 0.00823499999999
 
 
 def image_pipeline(img):
+    img = img[:390, 360:, :]
     img = cv2.resize(img, (64, 64))
+    img = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
+
     data = np.asarray(img, dtype="float")
-    data = np.dot(data[...,:3], [0.299, 0.587, 0.114]) # to gray
+    data = data / 255. # normalization
 
-    h, w = data.shape
-    data = data[int(h/2):h, :]
-    data = data / 255 # normalization
-
-    data = data[np.newaxis, :,:, np.newaxis]
+    data = data[np.newaxis, :, :, np.newaxis]
     return data
 
 def define_warper():
@@ -108,10 +107,9 @@ def fillPoly(undist, warped, polyfit):
     #pts = np.hstack((pts_left, pts_right))
 
     # Draw the lane onto the warped blank image
-    #cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
-
-    cv2.polylines(color_warp, np.int_([pts_left]), 5, (0, 255, 0)) 
-    cv2.polylines(color_warp, np.int_([pts_right]), 5, (255, 0, 0)) 
+    cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
+    cv2.polylines(color_warp, np.int_([pts_left]), 1, (255, 0, 0)) 
+    cv2.polylines(color_warp, np.int_([pts_right]), 1, (255, 0, 0)) 
 
     # Warp the blank back to original image space using inverse perspective matrix (Minv)
     Minv = cv2.getPerspectiveTransform(warp_dst, warp_src)
