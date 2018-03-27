@@ -9,13 +9,13 @@ import math
 #from PIL import Image
 
 EPOCHS = 20
-BATCH_SIZE = 10
-rate = 0.0001
+BATCH_SIZE = 50
+rate = 0.00005
 
 def image_pipeline(file):
     img = cv2.imread(file)
     img = img[:390, 360:, :]
-    img = cv2.resize(img, (64, 64))
+    img = cv2.resize(img, (128, 128))
     img = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
 
     data = np.asarray(img, dtype="float")
@@ -60,6 +60,7 @@ def get_data():
         X.append(image_pipeline(file))
         y.append((t[1:] - min) / range)
 
+        
     print ("data loaded")
     return train_test_split(np.array(X), np.array(y), test_size=0.2)
 
@@ -93,9 +94,9 @@ def get_model_nvidia(x): #source of the model: http://images.nvidia.com/content/
     pool5 = tf.layers.max_pooling2d(inputs=conv5, pool_size=[2, 2], strides=2)
 
     conv6 = tf.layers.conv2d(inputs=conv5, filters=64, kernel_size=[5, 5], padding="same", activation=tf.nn.elu)
-    pool6 = tf.layers.max_pooling2d(inputs=conv6, pool_size=[2, 2], strides=2)
+    #pool6 = tf.layers.max_pooling2d(inputs=conv6, pool_size=[2, 2], strides=2)
 
-    fc0 = flatten(pool6)
+    fc0 = flatten(conv6)
     fc0d = tf.layers.dropout(inputs=fc0, rate=0.2)
 
     fc1 = tf.layers.dense(inputs=fc0d, units=1164, activation=tf.nn.elu)

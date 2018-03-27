@@ -1,6 +1,9 @@
 # ~/repo/carla/CarlaUE4.sh /Game/Maps/Town01 -carla-server -fps=15 -windowed -ResX=800 -ResY=600 
 from __future__ import print_function
 
+import os
+os.environ["CUDA_VISIBLE_DEVICES"]="-1"   
+
 import tensorflow as tf
 from tensorflow.contrib.layers import flatten
 
@@ -46,7 +49,7 @@ poly_range = [0.001227, 1.1010660000000001, 411.36781700000006, 0.00823499999999
 
 def image_pipeline(img):
     img = img[:390, 360:, :]
-    img = cv2.resize(img, (64, 64))
+    img = cv2.resize(img, (128, 128))
     img = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
 
     data = np.asarray(img, dtype="float")
@@ -93,7 +96,7 @@ def sem2bin(img):
     return bin
 
 def fillPoly(undist, warped, polyfit):
-    yvals = np.arange(h / 2, h, 1.0)
+    yvals = np.arange(0, 390, 1.0)
     
     left_fitx = polyfit[0] * yvals ** 2 + polyfit[1] * yvals + polyfit[2]
     right_fitx = polyfit[3] * yvals ** 2 + polyfit[4] * yvals + polyfit[5]
@@ -104,12 +107,12 @@ def fillPoly(undist, warped, polyfit):
     # Recast the x and y points into usable format for cv2.fillPoly()
     pts_left = np.array([np.transpose(np.vstack([left_fitx, yvals]))])
     pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, yvals])))])
-    #pts = np.hstack((pts_left, pts_right))
+    pts = np.hstack((pts_left, pts_right))
 
     # Draw the lane onto the warped blank image
     cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
-    cv2.polylines(color_warp, np.int_([pts_left]), 1, (255, 0, 0)) 
-    cv2.polylines(color_warp, np.int_([pts_right]), 1, (255, 0, 0)) 
+    #cv2.polylines(color_warp, np.int_([pts_left]), 1, (255, 0, 0)) 
+    #cv2.polylines(color_warp, np.int_([pts_right]), 1, (255, 0, 0)) 
 
     # Warp the blank back to original image space using inverse perspective matrix (Minv)
     Minv = cv2.getPerspectiveTransform(warp_dst, warp_src)
