@@ -2,13 +2,12 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"]="-1"   
 
 import tensorflow as tf
-from tensorflow.contrib.layers import flatten
 
 import numpy as np
 import glob
-from sklearn.model_selection import train_test_split
 import cv2
 import math
+from matplotlib import pyplot as plt
 
 h, w = None, None
 
@@ -61,18 +60,22 @@ def cnn_lanes(img, frame, scr_poly):
     img = fillPoly(img, polyfit, scr_poly)
 
     cv2.imwrite(image_filename_format.format('cnn', frame), img)
-    #plt.imshow(img)
-    #plt.pause(0.001)
 
 def image_pipeline(img):
-    img = img[:390, 360:, :]
-    img = cv2.resize(img, (128,128))
-    img = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
+    img = img[:370, 360:, :]
+
+    h,w,c = img.shape
+    img = cv2.resize(img, (int(h/5), int(w/5)))
+
+    #img = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
+
+    #plt.imshow(img)
+    #plt.pause(0.001)
 
     data = np.asarray(img, dtype="float")
     data = data / 255. # normalization
 
-    data = data[np.newaxis, :, :, np.newaxis]
+    data = data[np.newaxis, :, :]
     return data
 
 sess = tf.Session()
