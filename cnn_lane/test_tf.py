@@ -2,6 +2,7 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"]="-1"   
 
 import tensorflow as tf
+from random import randint
 
 import numpy as np
 import glob
@@ -13,8 +14,8 @@ h, w = None, None
 
 image_filename_format = '/home/kvasnyj/temp/images/{:s}/image_{:0>5d}.png'
 
-poly_min = [0.0, 0.0, 197.94484600000001, 0.0, 0.0, 55.296128000000003]
-poly_range = [0.001227, 1.1010660000000001, 411.36781700000006, 0.0082349999999999993, 8.6811699999999998, 2673.026965]
+poly_min = [0.0, 0.0, 57.419342, 0.0, 0.0, 2.7843300000000002]
+poly_range = [0.001701, 1.5352939999999999, 668.07097899999997, 0.0088179999999999994, 9.4919180000000001, 2986.8876020000002]
 
 def fillPoly(undist, polyfit, scr_poly):
     yvals = np.arange(0, 390, 1.0)
@@ -62,20 +63,21 @@ def cnn_lanes(img, frame, scr_poly):
     cv2.imwrite(image_filename_format.format('cnn', frame), img)
 
 def image_pipeline(img):
-    img = img[:370, 360:, :]
+    img = img[:390, :, :]
+    #img = img[300:390, :, :]
 
     h,w,c = img.shape
-    img = cv2.resize(img, (int(h/5), int(w/5)))
-
-    #img = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
-
+    img = cv2.resize(img, (int(h/5), int(w/5))) 
+    #img = cv2.resize(img, (64, 64)) 
+    img = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
+    
     #plt.imshow(img)
     #plt.pause(0.001)
 
     data = np.asarray(img, dtype="float")
     data = data / 255. # normalization
 
-    data = data[np.newaxis, :, :]
+    data = data[np.newaxis, :, :, np.newaxis]
     return data
 
 sess = tf.Session()

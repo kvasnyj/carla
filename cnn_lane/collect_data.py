@@ -215,11 +215,11 @@ def process_image(src_sem, src_img):
     img_warped = warper(img)
     img_bin = sem2bin(img_warped)
 
-    if frame>=10:
+    if frame>=30:
         leftx, lefty, rightx, righty = peaks_histogram(img_bin)
         left_fit, right_fit = curvature(leftx, lefty, rightx, righty)  
         if left_fit[2]>0 and right_fit[2]>0:   
-            cv2.imwrite("/home/kvasnyj/Dropbox/carla/cnn_lane/data/image_{:0>5d}.png".format(frame), warper(src_img))
+            cv2.imwrite("/home/kvasnyj/Dropbox/carla/cnn_lane/data/image_{:0>5d}.png".format(frame), src_img)
             with open("/home/kvasnyj/Dropbox/carla/cnn_lane/data/data.txt", "a") as text:
                 text.write("%i;%f;%f;%f;%f;%f;%f\r\n" % (frame,left_fit[0],left_fit[1],left_fit[2],right_fit[0],right_fit[1],right_fit[2]))        
 
@@ -285,7 +285,7 @@ def run_carla_client(host, port):
         settings.set(
             SynchronousMode=True,
             SendNonPlayerAgentsInfo=True,
-            NumberOfVehicles=100,
+            NumberOfVehicles=20,
             NumberOfPedestrians=0,
             WeatherId= 1)  # random.choice([1, 3, 7, 8, 14]))
         settings.randomize_seeds()

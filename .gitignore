@@ -9,6 +9,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 cnn_lane/data/*.png
+cnn_lane/data2/*.png
 log/
 env/
 build/

@@ -5,23 +5,34 @@ import numpy as np
 import glob
 from sklearn.model_selection import train_test_split
 import cv2
+from random import randint
 import math
 
 EPOCHS = 20
-BATCH_SIZE = 10
-rate = 0.0001
+BATCH_SIZE = 100
+rate = 0.001
+
+def blackbox(img):
+    h,w = img.shape[0], img.shape[1]
+    size=0.1
+    for i in range(10):
+        x = randint(0, int(h*(1-size)))
+        y = randint(0, int(w*(1-size)))
+        img[x:x+int(size*h), y:y+int(size*w)]=0
+    return img
 
 def image_pipeline(file):
     img = cv2.imread(file)
-    img = img[:370, 360:, :]
+    img = img[:390, :, :]
     h,w,c = img.shape
     img = cv2.resize(img, (int(h/5), int(w/5)))
-    #img = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
-
+    #img = cv2.resize(img, (64, 64)) 
+    img = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
+    
     data = np.asarray(img, dtype="float")
     data = data / 255. # normalization
 
-    #data = data[:,:, np.newaxis]
+    data = data[:,:, np.newaxis]
     return data
 
 def get_data():
@@ -91,12 +102,12 @@ def get_model_nvidia(x): #source of the model: http://images.nvidia.com/content/
     pool4 = tf.layers.max_pooling2d(inputs=conv4, pool_size=[2, 2], strides=2)
 
     conv5 = tf.layers.conv2d(inputs=pool4, filters=64, kernel_size=[5, 5], padding="same")
-    #pool5 = tf.layers.max_pooling2d(inputs=conv5, pool_size=[2, 2], strides=2)
+    pool5 = tf.layers.max_pooling2d(inputs=conv5, pool_size=[2, 2], strides=2)
 
-    conv6 = tf.layers.conv2d(inputs=conv5, filters=64, kernel_size=[5, 5], padding="same")
-    #pool6 = tf.layers.max_pooling2d(inputs=conv6, pool_size=[2, 2], strides=2)
+    conv6 = tf.layers.conv2d(inputs=pool5, filters=64, kernel_size=[5, 5], padding="same")
+    pool6 = tf.layers.max_pooling2d(inputs=conv6, pool_size=[2, 2], strides=2)
 
-    fc0 = flatten(conv6)
+    fc0 = flatten(pool6)
     fc0d = tf.layers.dropout(inputs=fc0, rate=0.2)
 
     fc1 = tf.layers.dense(inputs=fc0d, units=1164)
@@ -108,7 +119,10 @@ def get_model_nvidia(x): #source of the model: http://images.nvidia.com/content/
     fc3 = tf.layers.dense(inputs=fc2d, units=50)
     fc3d = tf.layers.dropout(inputs=fc3, rate=0.2)
 
-    output = tf.layers.dense(inputs=fc3d, units=6, name = "output")
+    fc4 = tf.layers.dense(inputs=fc3d, units=10, activation=tf.nn.elu)
+    fc4d = tf.layers.dropout(inputs=fc4, rate=0.5)
+
+    output = tf.layers.dense(inputs=fc4d, units=6, name = "output")
 
     return output
 
@@ -147,12 +161,14 @@ sess = tf.Session()
 sess.run(init)
 
 merged = tf.summary.merge_all()
-train_writer = tf.summary.FileWriter('log/train', sess.graph)
-test_writer = tf.summary.FileWriter('log/test')
+#train_writer = tf.summary.FileWriter('log/train', sess.graph)
+#test_writer = tf.summary.FileWriter('log/test')
+
+X_train_aug = np.copy(X_train)
 
 j=0
 for i in range(EPOCHS):
-    X_epoch, X_valid, y_epoch, y_valid = train_test_split(X_train, y_train, test_size=0.2)
+    X_epoch, X_valid, y_epoch, y_valid = train_test_split(X_train_aug, y_train, test_size=0.2)
     batches = split2batches(BATCH_SIZE, X_epoch, y_epoch)
 
     steps_per_epoch = len(X_epoch) // BATCH_SIZE
@@ -163,17 +179,18 @@ for i in range(EPOCHS):
         batch_x = batch[0]
         batch_y = batch[1]
         summary, loss  = sess.run([merged, train_op], feed_dict={x: batch_x, y: batch_y, learning_rate: rate})
-        train_writer.add_summary(summary, j)
+        #train_writer.add_summary(summary, j)
 
     summary, val_loss = eval_data(X_valid, y_valid)
-    test_writer.add_summary(summary, j)
+    #test_writer.add_summary(summary, j)
     print("EPOCH {} ...".format(i+1))
     print("Validation loss = {:.5f}".format(val_loss))
 
     print("rate", rate)
     print()
 
-    #rate = rate*0.9
+    
+    #rate = max(rate*0.9, 0.0001)
 
 # Evaluate on the test data
 summary, test_loss = eval_data(X_test, y_test)
